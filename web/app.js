@@ -26,7 +26,7 @@ async function api(path,values={},options={}){
  if(!r.ok)throw Error(data.error||data.detail||'请求未完成');return data;
 }
 function showLogin(url){
- state.epoch++;state.me=null;state.sources=[];state.visibleMessages=[];state.currentGroup=null;state.keys=[];state.selectedGroups.clear();
+ taskClear();state.epoch++;state.me=null;state.sources=[];state.visibleMessages=[];state.currentGroup=null;state.keys=[];state.selectedGroups.clear();
  document.querySelectorAll('dialog[open]').forEach(d=>d.close());$('account-menu').open=false;
  $('page-content').replaceChildren();$('message-body').replaceChildren();$('new-token').value='';
  document.body.classList.add('locked');$('auth-screen').hidden=false;document.title='登录 · ChatArchive';
@@ -121,9 +121,9 @@ async function load(){const epoch=++state.epoch;if(state.renderedRoute!==locatio
  $('auth-label').textContent=state.me.admin?'管理员':'只读访问';$('account-name').textContent=state.me.username;$('account-avatar').textContent=state.me.username.slice(0,1).toUpperCase();$('account-role').textContent=state.me.authentication==='feishu'?'飞书管理员':'空间管理员';$('change-password').hidden=state.me.authentication!=='password';
  $('auth-screen').hidden=true;document.body.classList.remove('locked');
  const src=await api('sources');if(epoch!==state.epoch)return;state.sources=src.sources;state.timezone=src.timezone;document.querySelector('.timezone').textContent=src.timezone;state.indexed=src.indexed_at;$('updated-at').textContent='索引更新 '+date(src.indexed_at,true);$('system-status').textContent='查询服务已连接';
- const r=route(),nav=['source','group'].includes(r.page)?'sources':r.page;document.querySelectorAll('[data-nav]').forEach(a=>a.classList.toggle('selected',a.dataset.nav===nav));
- const page=r.page==='overview'?await overview():r.page==='sources'?await sourcesPage():r.page==='source'?await sourceDetail(r):r.page==='group'?await groupDetail(r):r.page==='mcp'?await mcpPage():empty('页面不存在');
- if(epoch!==state.epoch)return;$('page-content').innerHTML=page;$('footer-status').textContent=(src.sources.some(s=>s.mode==='continuous')?'采集索引':'已导入记录')+' · 时区 '+src.timezone;
+ const r=route(),nav=['source','group'].includes(r.page)?'sources':r.page==='runs'?'tasks':r.page;document.querySelectorAll('[data-nav]').forEach(a=>a.classList.toggle('selected',a.dataset.nav===nav));
+ const page=r.page==='overview'?await overview():r.page==='sources'?await sourcesPage():r.page==='source'?await sourceDetail(r):r.page==='group'?await groupDetail(r):r.page==='mcp'?await mcpPage():r.page==='console'?await consolePage(r):r.page==='tasks'?await tasksPage(r):r.page==='runs'?await taskRunPage(r):empty('页面不存在');
+ if(epoch!==state.epoch)return;$('page-content').innerHTML=page;taskMount(r);$('footer-status').textContent=(src.sources.some(s=>s.mode==='continuous')?'采集索引':'已导入记录')+' · 时区 '+src.timezone;
  if(src.sources.some(s=>s.mode==='continuous')&&src.indexed_at&&Date.now()-Date.parse(src.indexed_at)>20*60000){$('notice').textContent='查询索引更新延迟，当前显示最近一次完整数据。';$('notice').hidden=false;}
  }catch(e){if(epoch===state.epoch){$('notice').textContent=e.message;$('notice').hidden=false;$('page-content').innerHTML=empty('暂时无法读取数据','请检查登录状态，或点击右上角刷新。');$('system-status').textContent='连接需检查';}}
  finally{if(epoch===state.epoch){$('page-content').removeAttribute('aria-busy');$('refresh').disabled=false;}}
@@ -132,7 +132,7 @@ async function copy(text){try{await navigator.clipboard.writeText(text);toast('�
 function messageDetails(index){const m=state.visibleMessages[index];if(!m)return;$('message-body').innerHTML=`<div class="message-source">${badge(names[m.source],'info')}${badge(types[m.type]||m.type)}${m.deleted?badge('已撤回','warn'):''}</div><dl class="detail-facts">${[['群',m.display_name],['群编号',m.group_id],['发送者',m.sender],['发送者编号',m.sender_id||'未知'],['时间',date(m.sent_at,true)],['消息 ID',m.id]].map(([k,v])=>`<div><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl><h3 class="message-body-title">原文</h3><pre class="full-message">${esc(m.text)}</pre>${m.media_state?`<p class="panel-note">附件：${({removed:'原件已由历史策略移除',error:'处理异常',stored:'原系统保留原件，本接口不提供下载',not_downloaded:'尚未下载原件'})[m.media_state]||esc(m.media_state)}</p>`:''}<button class="button" id="copy-citation">复制消息引用</button>`;$('copy-citation').onclick=()=>copy(`${names[m.source]} · ${m.display_name} · ${date(m.sent_at,true)}\n消息 ID: ${m.id}\n${m.text}`);$('message-dialog').showModal();}
 async function populateKeyGroups(){const chosen=[...$('key-sources').querySelectorAll('input:checked')].map(e=>e.value);const search=$('key-group-search').value;const rows=await Promise.all(chosen.map(source=>api('groups',{source,q:search,kind:'all',limit:100})));$('key-groups').innerHTML=rows.flatMap(r=>r.items).map(g=>{const key=g.source+':'+g.id;return `<label><input type="checkbox" aria-label="${esc(g.display_name)} ${names[g.source]}" value="${esc(key)}" ${state.selectedGroups.has(key)?'checked':''}><span>${esc(g.display_name)}<small>${names[g.source]} · ${n(g.message_count)} 条</small></span></label>`;}).join('')||'<p class="muted-copy">没有符合条件的群</p>';if(rows.some(r=>r.has_more))$('key-groups').insertAdjacentHTML('beforeend','<p class="panel-note">每个来源显示前 100 个会话，请搜索定位其他群。</p>');}
 function openKey(){state.selectedGroups.clear();$('key-form').reset();$('key-form').hidden=false;$('key-created').hidden=true;$('new-token').value='';$('key-error').textContent='';$('key-group-picker').hidden=true;$('key-sources').innerHTML=state.sources.filter(s=>s.mode!=='unconfigured').map(s=>`<label><input type="checkbox" name="key-source" value="${s.source}" ${s.source==='feishu'?'checked':''}>${s.name}</label>`).join('');$('key-dialog').showModal();}
-$('page-content').addEventListener('submit',e=>{e.preventDefault();const form=e.target,values=Object.fromEntries(new FormData(form));if(form.id==='group-search-form')Object.assign(state.groupFilter,values,{offset:0});if(form.id==='records-form')Object.assign(state.recordFilter,values,{offset:0});load();});
+$('page-content').addEventListener('submit',e=>{if(!['group-search-form','records-form'].includes(e.target.id))return;e.preventDefault();const form=e.target,values=Object.fromEntries(new FormData(form));if(form.id==='group-search-form')Object.assign(state.groupFilter,values,{offset:0});if(form.id==='records-form')Object.assign(state.recordFilter,values,{offset:0});load();});
 $('page-content').addEventListener('change',e=>{if(e.target.id==='analysis-range'){state.range=Number(e.target.value);load();}});
 $('page-content').addEventListener('click',e=>{const t=e.target.closest('button');if(!t)return;
  if(t.dataset.pageKind){state[t.dataset.pageKind==='groups'?'groupFilter':'recordFilter'].offset=Number(t.dataset.offset);load();}
@@ -163,4 +163,5 @@ window.addEventListener('pageshow',e=>{if(e.persisted){state.me=null;load();}});
 
 $('refresh').onclick=()=>load();
 window.addEventListener('hashchange',()=>{state.groupFilter.offset=0;state.currentGroup=null;load();window.scrollTo({top:0,behavior:'instant'});});
+taskBind();
 load();
