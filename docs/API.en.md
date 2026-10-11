@@ -54,3 +54,7 @@ Frequent terms use at most the latest 3,000 `text`/`post`/`mixed` messages withi
 - `GET /api/sso`: only an authenticated Feishu administrator through a trusted proxy can exchange identity for a session. Clients cannot supply their own trusted identity headers.
 
 Before the initial password change, only account status, password change and logout are available. Browser sessions do not authorize MCP or the separate machine entry point. Passwords are not echoed in validation errors; invalid usernames and passwords return the same login error. Member roles, invitations and MFA are not implemented.
+
+## Command and task API
+
+Administrators can use `/api/commands`, `/api/tasks` and `/api/task-runs` to run statistics, manage schedules and retrieve reports. See [TASKS.en.md](TASKS.en.md) for request bodies, permissions and scheduling semantics.

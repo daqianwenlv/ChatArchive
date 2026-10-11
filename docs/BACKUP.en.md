@@ -73,3 +73,5 @@ A backup can predate a password change, account disablement or key revocation. R
 - Failed import: the previous query snapshot remains available. Concurrent index writers are rejected by a file lock.
 
 Practice in isolation first. `scripts/verify_docker.py` exercises recovery and switching back using fictional data.
+
+Tasks and run snapshots live in `tasks.sqlite3` and are included in backups. Restore pauses every task and cancels queued/running executions. Review rules after signing in before resuming schedules. Older backups without this database remain supported.

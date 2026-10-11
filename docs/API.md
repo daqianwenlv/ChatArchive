@@ -55,3 +55,7 @@ JSONL 群对象：`kind=group`，`source` 为 feishu/wecom/wechat/dingtalk，`id
 - `GET /api/sso`：仅可信代理完成飞书管理员认证后可交换会话；普通客户端不能自行传入身份头。
 
 首次改密前，仅允许读取自己的登录状态、改密和退出。浏览器会话不授予 MCP 或独立机器入口访问权。密码及校验错误不会回显提交内容；无效账号与密码返回相同错误。角色、成员邀请与 MFA 仍属于后续版本。
+
+## 指令台与任务 API
+
+管理员可通过 `/api/commands`、`/api/tasks` 和 `/api/task-runs` 创建统计、管理周期并读取结果。完整请求体、权限与调度语义见 [TASKS.md](TASKS.md)。

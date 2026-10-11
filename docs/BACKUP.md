@@ -13,7 +13,7 @@ python -m chatarchive.maintenance backup ./backups/snapshot.zip
 python -m chatarchive.maintenance doctor
 ```
 
-备份使用 SQLite backup API，分别取得各库的完整快照，支持在线运行；它不是三个数据库同一毫秒的联合事务。ZIP 内含文件大小、SHA-256、版本和消息计数。输出文件为 0600，已有文件不会被覆盖。
+备份使用 SQLite backup API，分别取得各库的完整快照，支持在线运行；它不是各数据库同一毫秒的联合事务。ZIP 内含文件大小、SHA-256、版本和消息计数。输出文件为 0600，已有文件不会被覆盖。
 
 恢复到一个全新的目录，完成后再启动服务：
 
@@ -73,3 +73,5 @@ docker compose up -d --wait
 - 导入失败：保留上一个查询快照；并发导入会被文件锁拒绝。
 
 先在隔离环境演练，再用于生产。`scripts/verify_docker.py` 使用虚构数据验证备份、新卷恢复、凭据作废和切回原卷。
+
+任务与运行结果保存在 `tasks.sqlite3`，自动纳入备份。恢复时所有任务暂停，排队或运行中的执行标记为取消；登录检查规则后再手动启用。较旧备份没有任务库时仍可恢复。
