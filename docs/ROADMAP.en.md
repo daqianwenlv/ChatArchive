@@ -4,9 +4,9 @@
 
 This roadmap describes future work, not current functionality or a release-date commitment. Current capabilities are listed in the [README](../README.md).
 
-## Available in the query preview
+## Available in the archive and tasks preview
 
-Conversation directory, archive imports, message search, descriptive statistics, local administrator accounts, scoped HTTP/MCP keys, audit records, verified backups and recovery, Docker/Python installation, fictional examples and release checks.
+Conversation directory, archive imports, message search, descriptive statistics, local administrator accounts, scoped HTTP/MCP keys, audit records, verified backups and recovery, Docker/Python installation, fictional examples and release checks. The command console supports cross-group statistics, daily/weekly/monthly tasks, persistent results and CSV/Markdown/JSON report exports.
 
 ## Raw archives and data model
 
@@ -22,7 +22,7 @@ Add connection setup, identity checks, group discovery, selected collection scop
 
 ## Later integrations
 
-Evaluate DingTalk connectors, attachment processing, exports, OAuth discovery, optional S3-compatible storage, and model-generated reports with message evidence. Add each capability only with a working implementation and its own verification.
+Evaluate DingTalk connectors, attachment processing, full archive exports, OAuth discovery, optional S3-compatible storage, and model-generated reports with message evidence. Add each capability only with a working implementation and its own verification.
 
 ## Stable-release work
 
