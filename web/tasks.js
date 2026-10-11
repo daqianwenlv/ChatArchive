@@ -10,7 +10,7 @@ const taskDefault=()=>({name:'',rule:{groups:[],keyword:'',message_type:'',days:
 const taskOptions=(items,value)=>Object.entries(items).map(([k,v])=>`<option value="${esc(k)}" ${String(value)===k?'selected':''}>${esc(v)}</option>`).join('');
 const taskSchedule=c=>c.schedule.frequency==='manual'?'仅手动运行':`${({daily:'每天',weekly:'每周'+['一','二','三','四','五','六','日'][c.schedule.weekday],monthly:'每月 '+c.schedule.monthday+' 日'})[c.schedule.frequency]} ${c.schedule.time} · ${c.rule.timezone}`;
 function taskClear(){clearTimeout(taskUI.poll);taskUI.draft=null;taskUI.groups.clear();taskUI.run=null;taskUI.editId=null;taskUI.searchEpoch++;}
-function taskSummary(c){const r=c.rule;return `汇总 ${r.groups.length} 个群，${r.window==='complete_days'?'前':'最近'} ${r.days} ${r.window==='complete_days'?'个完整自然日':'天'}的${r.message_type?(types[r.message_type]||r.message_type):'全部'}消息${r.keyword?'，正文包含「'+r.keyword+'」':''}，${taskDimensions[r.dimension]}，生成 ${taskFormats[c.output]}。`;}
+function taskSummary(c){const r=c.rule,time=({previous_week:'上一完整自然周',previous_month:'上一完整自然月',complete_days:`前 ${r.days} 个完整自然日`,rolling:`最近 ${r.days} 天`})[r.window];return `汇总 ${r.groups.length} 个群，${time}的${r.message_type?(types[r.message_type]||r.message_type):'全部'}消息${r.keyword?'，正文包含「'+r.keyword+'」':''}，${taskDimensions[r.dimension]}，生成 ${taskFormats[c.output]}。`;}
 
 async function consolePage(r){
  header('指令台','选择资料范围，执行统计或保存为定期任务',[['指令台']]);
