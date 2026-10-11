@@ -1,0 +1,20 @@
+[Unit]
+Description=ChatArchive query API and MCP
+After=network.target
+[Service]
+Type=simple
+User=chatarchive
+Group=chatarchive
+WorkingDirectory=/opt/ChatArchive
+EnvironmentFile=/etc/chatarchive-api.env
+ExecStart=/opt/ChatArchive/.venv/bin/python -m uvicorn chatarchive.server:app --host 127.0.0.1 --port 8796 --no-access-log --no-proxy-headers
+Restart=on-failure
+RestartSec=5
+UMask=0027
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/chatarchive
+[Install]
+WantedBy=multi-user.target

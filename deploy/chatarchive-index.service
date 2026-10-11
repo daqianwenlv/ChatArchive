@@ -1,0 +1,12 @@
+[Unit]
+Description=Refresh ChatArchive private query index
+After=network-online.target
+[Service]
+Type=oneshot
+User=root
+Group=chatarchive
+WorkingDirectory=/opt/ChatArchive
+EnvironmentFile=/etc/chatarchive-index.env
+ExecStart=/opt/ChatArchive/.venv/bin/python -m chatarchive.importer --host ${CHATARCHIVE_SOURCE_HOST} --identity ${CHATARCHIVE_SSH_IDENTITY} --chatlog-root ${CHATARCHIVE_CHATLOG_ROOT} --wecom-db ${CHATARCHIVE_WECOM_DB} --output /var/lib/chatarchive/archive.sqlite3
+TimeoutStartSec=240
+UMask=0027
