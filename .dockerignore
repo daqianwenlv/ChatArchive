@@ -1,0 +1,15 @@
+**
+!requirements.lock
+!chatarchive/
+!chatarchive/**
+!scripts/
+!scripts/export_chatlog.py
+!web/
+!web/index.html
+!web/app.js
+!web/app.css
+!web/favicon.svg
+!examples/
+!examples/sample.jsonl
+**/__pycache__/
+**/*.pyc

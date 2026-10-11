@@ -1,0 +1,3 @@
+# Install requirements.lock first, then install these optional verification tools.
+pip-audit==2.10.1
+pip-licenses==5.5.5

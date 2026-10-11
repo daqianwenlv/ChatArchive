@@ -1,0 +1,30 @@
+services:
+  chatarchive:
+    build:
+      context: .
+      args:
+        CHATARCHIVE_PIP_INDEX_URL: ${CHATARCHIVE_PIP_INDEX_URL:-https://pypi.org/simple}
+    ports:
+      - "127.0.0.1:${CHATARCHIVE_PORT:-8769}:8769"
+    environment:
+      CHATARCHIVE_BASE_URL: ${CHATARCHIVE_BASE_URL:-http://127.0.0.1:8769}
+      CHATARCHIVE_ADMIN_TOKEN: ${CHATARCHIVE_ADMIN_TOKEN:-}
+      CHATARCHIVE_TIMEZONE: ${CHATARCHIVE_TIMEZONE:-Asia/Shanghai}
+    volumes:
+      - archive:/data
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777,size=128m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "python", "-c", "import json,urllib.request; r=json.load(urllib.request.urlopen('http://127.0.0.1:8769/health',timeout=3)); assert r['ok'] and r['index_ready']"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+volumes:
+  archive:

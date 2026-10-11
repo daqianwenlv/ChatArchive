@@ -1,0 +1,36 @@
+# 内部盘点和旧系统参考资料不直接进入公开仓库
+/internal/
+/site/
+
+# 凭证和运行数据
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.sqlite
+*.sqlite3
+*.db
+*.db-*
+/var/
+/data/
+/media/
+/exports/
+/backups/
+
+# 开发环境
+.DS_Store
+__pycache__/
+*.py[cod]
+.venv/
+node_modules/
+dist/
+.pytest_cache/
+
+# Built release artifacts and local access keys
+/release/
+*token*.txt
+
+# Local verification reports
+/dependency-audit.json
+/docker-verification.json
