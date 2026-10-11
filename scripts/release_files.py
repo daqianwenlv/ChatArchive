@@ -7,7 +7,7 @@ def source_files(root):
            'requirements.txt','requirements.lock','requirements-dev.txt','.gitignore','.env.example',
            '.dockerignore','Dockerfile','compose.yaml',
            'docs/TASKS.md','docs/TASKS.en.md','docs/API.md','docs/DEPLOYMENT.md','docs/BACKUP.md','docs/RELEASE.md','docs/VALIDATION.md','docs/THIRD_PARTY.md','docs/images/overview.jpg',
-           'docs/images/group-analysis.jpg','docs/images/message-search.jpg','docs/images/command-console.jpg','docs/images/task-plan.jpg','docs/images/task-topic.jpg',
+           'docs/images/group-analysis.jpg','docs/images/message-search.jpg','docs/images/command-console.jpg','docs/images/group-discovery.jpg','docs/images/task-plan.jpg','docs/images/task-topic.jpg',
            'docs/API.en.md','docs/DEPLOYMENT.en.md','docs/BACKUP.en.md','docs/RELEASE.en.md','docs/VALIDATION.en.md','docs/ROADMAP.en.md',
            'docs/产品原则.md','docs/产品需求.md','docs/架构与接口草案.md','docs/实施清单.md','docs/开源与部署.md',
            'scripts/export_chatlog.py','scripts/package_source.py','scripts/release_files.py',
