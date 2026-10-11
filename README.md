@@ -15,6 +15,8 @@ Current version: **0.2.3-preview.1 — single-workspace query preview**. The web
 
 ![ChatArchive group directory with fictional sample data](docs/images/overview.jpg)
 
+*One directory for group names, IDs, message counts and archive coverage. All screenshots below show a running instance with fictional data: 7 groups and 270 messages.*
+
 ## What you can do
 
 - **Browse conversations:** group names or IDs, archived message counts, source filters and archive coverage.
@@ -25,6 +27,22 @@ Current version: **0.2.3-preview.1 — single-workspace query preview**. The web
 - **Maintain your archive:** verified database backups, restore into a new directory or volume, and a diagnostic command.
 
 ChatArchive runs on infrastructure you control. Use its web console as a standalone application, or let other platforms query the same backend through authorized interfaces. It reads existing archives; platform collection setup and a unified raw-event store are planned separately.
+
+## Product tour
+
+### Group analysis
+
+Open a group to review message trends, participating accounts, message types and sending hours. Select a frequent term to find the messages behind it.
+
+![Group activity, message types, participating accounts and frequent terms](docs/images/group-analysis.jpg)
+
+### Message search
+
+Combine a keyword with dates and message types. Each result keeps its sender, timestamp and a link to the original record and citation identifiers.
+
+![Searching fictional release discussions by keyword and date](docs/images/message-search.jpg)
+
+The [showcase dataset](examples/showcase.jsonl) reproduces these views. After starting the application, import it with `docker compose exec chatarchive python -m chatarchive.cli import-jsonl examples/showcase.jsonl`. Use **All records / 全部记录** for analysis or select the sample dates, **September 28–October 11, 2026**, when filtering records.
 
 ## Quick start with Docker Compose
 
