@@ -1,6 +1,6 @@
 # 0.4.0-preview.1 validation record
 
-2026-10-11: 51 automated tests passed and all three frontend scripts passed syntax checks. A real browser with fictional data exercised group selection, ordering, draft persistence, confirmation, version changes, historical reports, pause/resume and per-step CSV exports. 390px and 320px viewports have no page-level horizontal overflow; mobile confirmation remains reachable. Model planning, citations and concurrent confirmation were verified with test doubles; no production model is configured and external model quality has not been validated. Earlier container and installation records below are historical, not a substitute for current deployment verification.
+2026-10-11: 59 automated tests passed and all three frontend scripts passed syntax checks. A real browser with fictional data exercised intent-first group discovery, match evidence, explicit selection, retained choices after searching again, scope-to-plan progression, group selection, ordering, draft persistence, confirmation, version changes, historical reports, pause/resume and per-step CSV exports. 390px and 320px viewports have no page-level horizontal overflow; mobile confirmation remains reachable. Model planning, citations and concurrent confirmation were verified with test doubles; no production model is configured and external model quality has not been validated. Earlier container and installation records below are historical, not a substitute for current deployment verification.
 
 ---
 

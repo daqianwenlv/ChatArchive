@@ -2,7 +2,7 @@
 
 **English** · [简体中文](TASKS.md)
 
-Describe the work in the command console. Review an editable plan with its objective, groups, first reporting dates, schedule, output and ordered steps. Missing essential details require clarification. Saving a draft does not create an executable task. **Confirm and run** atomically saves the version and queues the first execution, then opens a permanent task page.
+Start with a request, without selecting groups first. Search group names, IDs and archived message text; inspect match counts and up to two original excerpts per candidate. Select the scope, then review an editable plan with its objective, groups, first reporting dates, schedule, output and ordered steps. Missing essential details require clarification. Saving a draft does not create an executable task. **Confirm and run** atomically saves the version and queues the first execution, then opens a permanent task page.
 
 Each task has latest results, execution history and a versioned agreement. Changes require another review; historical reports retain their original rules. A failed run leaves the last successful report available. Without an AI configuration, users can create manual statistical plans.
 
@@ -18,7 +18,9 @@ CHATARCHIVE_AI_API_KEY=your-server-side-key
 
 The endpoint must support Chat Completions and JSON object responses. HTTPS is required except for loopback HTTP model services. Keys stay on the server. “Configured” does not assert a successful connection test; generating a plan exercises the service.
 
-Planning sends the request, current plan and group directory only. Without selected groups, the directory is limited to 100 entries; select groups explicitly when a name is missing or ambiguous. Content-analysis steps send at most 100 matching message excerpts and validate every returned citation ID. Ensure your configured service is appropriate for this internal data.
+During discovery, the model receives only the request and output schema, extracting up to eight business terms. The archive is then searched locally using literal keywords, not vector similarity. Without a model, local tokenization is explicitly labeled keyword retrieval. The default 90-day search can cover 30 days, one year or all archived records; it is independent of the report window. At most 24 candidates are displayed, with truncation indicated. Candidates are never automatically selected, and confirmed tasks never automatically add new groups. Users can edit terms, broaden the window or supplement groups from the directory.
+
+After selection, planning sends the request, current plan and selected group directory only. Explicit API calls without selected groups receive at most 100 directory entries. Content-analysis steps send at most 100 matching message excerpts and validate every returned citation ID. Ensure your configured service is appropriate for this internal data.
 
 ## Execution model
 
@@ -32,7 +34,7 @@ Planning sends the request, current plan and group directory only. Without selec
 
 ## Scope and limits
 
-Rules operate on archived messages in the query index. Keywords are literal substrings, not OR expressions. Rules cannot execute prompts, SQL or scripts. Record inventories include message excerpts and references; they do not download or parse attachments. Optional summaries cover the retained message sample, distinguish facts from follow-ups, and do not score employee performance.
+Rules operate on archived messages in the query index. Execution keywords are literal substrings, not OR expressions; group discovery instead matches any search term. Rules cannot execute prompts, SQL or scripts. Record inventories include message excerpts and references; they do not download or parse attachments. Optional summaries cover the retained message sample, distinguish facts from follow-ups, and do not score employee performance.
 
 Limits: 50 groups per rule, 366 days per window, 200 saved tasks and 20 queued/running jobs. The same saved task cannot be queued twice concurrently. Each step reads one consistent archive snapshot with an approximately 45-second query budget. Indexes may change between steps; each section retains its index timestamp. Counts include all matching messages; output tables contain at most 2,000 rows, evidence contains at most 100 recent messages, and excerpts contain at most 2,000 characters. Truncation is explicit; full messages remain retrievable by ID.
 
@@ -84,6 +86,8 @@ Create-task body:
 
 `weekday` is Monday=0 through Sunday=6; `frequency` is manual/daily/weekly/monthly; `dimension` is group/day/sender/type/records; `window` is complete_days/rolling/previous_week/previous_month. Immediate commands accept only name, rule and output. Run states are queued/running/succeeded/failed/cancelled; exports require succeeded.
 
-Natural-language drafts accept `request`, optional `groups`, and optional `context` containing the currently edited TaskInput for refinement. Manual drafts use `config`; changes to an existing task include `task_id`. Unresolved `questions` block confirmation; `notes` appear in the review. Up to 100 unfinished drafts are retained, with optimistic revision checks.
+Discovery drafts accept `request`, `discover_groups: true`, optional `search_terms` (up to eight terms of 2–60 characters), and `search_days` (default 90, 1–366 or null for the full archive). They return `scope_review` with `proposal.discovery` and cannot be confirmed for execution.
+
+After scope selection, natural-language drafts accept `request`, `groups`, and optional `context` containing the currently edited TaskInput for refinement. Manual drafts use `config`; changes to an existing task include `task_id`. Unresolved `questions` block confirmation; `notes` appear in the review. Up to 100 unfinished drafts are retained, with optimistic revision checks.
 
 Optional `workflow` contains `objective`, `request`, and `steps`; each step has `{kind, title, instruction}`. Statistical kinds match dimension; analysis uses `summary`. Existing `/tasks` and `/commands` remain available for explicit API operations; the new web flow uses draft confirmation.
