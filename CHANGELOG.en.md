@@ -2,6 +2,13 @@
 
 **English** · [简体中文](CHANGELOG.md)
 
+## 0.4.0-preview.1 — Requests, reviewed plans and task workspaces
+
+- Natural-language requests, clarification, persisted drafts and editable confirmation plans; optional JSON model service with manual planning when unconfigured.
+- Ordered execution after confirmation, immutable plan versions, and permanent pages for reports, history and agreements.
+- Previous calendar week/month windows, cited sample analysis, per-step status and exports.
+- Responsive confirmation controls, readable objectives and dates; editing a paused task preserves its paused schedule.
+
 ## 0.3.0-preview.1 — Command console and recurring tasks
 
 - Added cross-group statistics, daily/weekly/monthly schedules, pause/resume and manual runs.
