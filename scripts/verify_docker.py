@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Build and exercise an isolated deployment with synthetic data; remove only our test resources."""
-import argparse, asyncio, importlib.util, json, os, secrets, socket, subprocess, sys, tempfile
+import argparse, asyncio, importlib.util, json, os, secrets, socket, subprocess, sys, tempfile, time
 from pathlib import Path
 import httpx
 
@@ -37,6 +37,17 @@ def exercise(url,username,password):
         assert len(result['tools'])==5
         assert result['sources']['sources'][0]['messages']==2
         assert c.get('/api/keys',headers={'Authorization':'Bearer '+key['token']}).status_code==403
+        assert c.get('/api/tasks',headers={'Authorization':'Bearer '+key['token']}).status_code==403
+        task=c.post('/api/tasks',json={'name':'Synthetic weekly report','rule':{'groups':[{'source':'feishu','id':'demo-project'}],'days':366},'schedule':{'frequency':'weekly'}})
+        assert task.status_code==201
+        queued=c.post('/api/tasks/'+task.json()['id']+'/run');assert queued.status_code==202
+        run_id=queued.json()['id'];deadline=time.monotonic()+25
+        while time.monotonic()<deadline:
+            report=c.get('/api/task-runs/'+run_id).json()
+            if report['status'] not in ('queued','running'):break
+            time.sleep(.25)
+        assert report['status']=='succeeded',report['status']
+        assert c.get('/api/task-runs/'+run_id+'/export').status_code==200
         assert c.delete('/api/session').status_code==200
         assert c.get('/api/messages').status_code==401
         return new,key
@@ -68,6 +79,8 @@ def main():
         with httpx.Client(base_url=url,headers={'Origin':url},timeout=30) as c:
             assert c.post('/api/session',json={'username':username,'password':password}).status_code==200
             assert c.get('/api/messages').json()['total']==2
+            assert c.get('/api/tasks').json()['items']
+            assert c.get('/api/task-runs').json()['items'][0]['status']=='succeeded'
             call(projects[0],'exec','-T','chatarchive','python','-m','chatarchive.maintenance','backup','/data/smoke-backup.zip')
             snapshot=call(projects[0],'exec','-T','chatarchive','python','-c',"import sys;sys.stdout.buffer.write(open('/data/smoke-backup.zip','rb').read())")
             assert c.delete('/api/keys/'+key['id']).status_code==200
