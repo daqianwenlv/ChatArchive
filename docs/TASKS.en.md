@@ -2,25 +2,41 @@
 
 **English** · [简体中文](TASKS.md)
 
-In the command console, select groups, message type, literal keyword, time window, aggregation and export format. **Run now** creates a persisted execution. **Save as task** stores the rule and schedules future runs; saving does not immediately generate a report.
+Start with a request, without selecting groups first. Search group names, IDs and archived message text; inspect match counts and up to two original excerpts per candidate. Select the scope, then review an editable plan with its objective, groups, first reporting dates, schedule, output and ordered steps. Missing essential details require clarification. Saving a draft does not create an executable task. **Confirm and run** atomically saves the version and queues the first execution, then opens a permanent task page.
 
-Example: select product and delivery groups, collect file messages from the preceding seven complete calendar days, generate a record inventory every Monday at 09:00, and download the result as CSV. Groups can span sources; unnamed groups use their IDs.
+Each task has latest results, execution history and a versioned agreement. Changes require another review; historical reports retain their original rules. A failed run leaves the last successful report available. Without an AI configuration, users can create manual statistical plans.
+
+## Optional AI configuration
+
+Set these server environment variables. With Compose, edit your local `.env` and recreate the service; with systemd, update the service environment file and restart it.
+
+```dotenv
+CHATARCHIVE_AI_BASE_URL=https://your-model-service.example/v1
+CHATARCHIVE_AI_MODEL=your-model-name
+CHATARCHIVE_AI_API_KEY=your-server-side-key
+```
+
+The endpoint must support Chat Completions and JSON object responses. HTTPS is required except for loopback HTTP model services. Keys stay on the server. “Configured” does not assert a successful connection test; generating a plan exercises the service.
+
+During discovery, the model receives only the request and output schema, extracting up to eight business terms. The archive is then searched locally using literal keywords, not vector similarity. Without a model, local tokenization is explicitly labeled keyword retrieval. The default 90-day search can cover 30 days, one year or all archived records; it is independent of the report window. At most 24 candidates are displayed, with truncation indicated. Candidates are never automatically selected, and confirmed tasks never automatically add new groups. Users can edit terms, broaden the window or supplement groups from the directory.
+
+After selection, planning sends the request, current plan and selected group directory only. Explicit API calls without selected groups receive at most 100 directory entries. Content-analysis steps send at most 100 matching message excerpts and validate every returned citation ID. Ensure your configured service is appropriate for this internal data.
 
 ## Execution model
 
-- Aggregate by group, day, sender or message type, or produce a record inventory.
-- Windows cover preceding complete calendar days, excluding today, or recent days up to the execution reference time. Boundaries use the rule's IANA timezone and are recorded as inclusive start / exclusive end.
+- Run up to six different step kinds in order: group, day, sender or message-type counts, record inventory, and optional cited content analysis.
+- Windows cover the previous calendar week, previous calendar month, preceding complete calendar days excluding today, or recent days up to execution time. Boundaries use the rule's IANA timezone and are recorded as inclusive start / exclusive end.
 - Daily, weekly and monthly schedules use wall-clock time; monthly days range from 1 to 28. Nonexistent DST times are skipped; a repeated local time executes only once.
 - A background thread in the API checks every 15 seconds. An OS file lock serializes execution across processes sharing the same data directory on one host. Multi-host scheduling over shared SQLite is unsupported.
 - After downtime, each overdue task runs once for its current window, rather than replaying every missed interval. Interrupted running jobs are marked failed and can be rerun manually. Rules, queue state and reports persist in `tasks.sqlite3`.
-- Pausing cancels queued scheduled executions; started jobs and explicitly requested manual runs finish normally. Resuming schedules the next future occurrence. Editing does not rewrite queued or historical execution snapshots.
+- Pausing cancels queued scheduled executions; started jobs and explicitly requested manual runs finish normally. Resuming schedules the next future occurrence. Confirming a changed plan never resumes an already paused schedule. Editing does not rewrite queued or historical execution snapshots.
 - Download CSV, Markdown or JSON from the workspace. No external messages are sent. Backups include tasks and results; restore pauses all schedules.
 
 ## Scope and limits
 
-Rules operate on archived messages in the query index. Keywords are literal substrings, not OR expressions. Rules cannot execute prompts, SQL or scripts. Record inventories include message excerpts and references; they do not download or parse attachments, produce model-based summaries or score employee performance.
+Rules operate on archived messages in the query index. Execution keywords are literal substrings, not OR expressions; group discovery instead matches any search term. Rules cannot execute prompts, SQL or scripts. Record inventories include message excerpts and references; they do not download or parse attachments. Optional summaries cover the retained message sample, distinguish facts from follow-ups, and do not score employee performance.
 
-Limits: 50 groups per rule, 366 days per window, 200 saved tasks and 20 queued/running jobs. The same saved task cannot be queued twice concurrently. Each report reads one consistent archive snapshot with an approximately 45-second query budget. Counts include all matching messages; output tables contain at most 2,000 rows, evidence contains at most 100 recent messages, and excerpts contain at most 2,000 characters. Truncation is explicit; full messages remain retrievable by ID.
+Limits: 50 groups per rule, 366 days per window, 200 saved tasks and 20 queued/running jobs. The same saved task cannot be queued twice concurrently. Each step reads one consistent archive snapshot with an approximately 45-second query budget. Indexes may change between steps; each section retains its index timestamp. Counts include all matching messages; output tables contain at most 2,000 rows, evidence contains at most 100 recent messages, and excerpts contain at most 2,000 characters. Truncation is explicit; full messages remain retrievable by ID.
 
 Revoked and undated messages are excluded. Undated records are counted separately because their reporting period is unknown. Participants are distinct source/account IDs; unknown accounts do not contribute to participant totals. Accounts on different platforms are not automatically merged.
 
@@ -32,6 +48,13 @@ All paths below use `/api` and require an administrator session or an existing a
 
 | Method | Path | Purpose |
 | --- | --- | --- |
+| GET | /task-planner | Model configuration status; no credentials |
+| POST | /task-range | Server-calculated first reporting range |
+| GET / POST | /task-drafts | List unfinished drafts / generate or save a plan |
+| GET / PUT | /task-drafts/{id} | Read / revise; writes require revision |
+| POST | /task-drafts/{id}/confirm | Confirm revision; run_now defaults to true; duplicate requests do not duplicate execution |
+| POST | /task-drafts/{id}/archive | Archive an unconfirmed draft |
+| GET | /tasks/{id}/topic | Last successful report, history and plan versions |
 | POST | /commands | Queue an immediate report; returns 202 and run ID |
 | GET / POST | /tasks | List / create saved rules |
 | GET / PUT | /tasks/{id} | Retrieve / fully replace a rule |
@@ -39,7 +62,7 @@ All paths below use `/api` and require an administrator session or an existing a
 | POST | /tasks/{id}/run | Queue a manual execution; returns 202 |
 | GET | /task-runs?task_id={id}&offset=0 | Run history, 30 per page; optional task filter |
 | GET | /task-runs/{id} | Status, rule snapshot and report |
-| GET | /task-runs/{id}/export?format=csv | Download csv / markdown / json |
+| GET | /task-runs/{id}/export?format=csv | Download csv / markdown / json; optional section=0..5 selects a step |
 
 Create-task body:
 
@@ -61,4 +84,10 @@ Create-task body:
 }
 ```
 
-`weekday` is Monday=0 through Sunday=6; `frequency` is manual/daily/weekly/monthly; `dimension` is group/day/sender/type/records; `window` is complete_days/rolling. Immediate commands accept only name, rule and output. Run states are queued/running/succeeded/failed/cancelled; exports require succeeded.
+`weekday` is Monday=0 through Sunday=6; `frequency` is manual/daily/weekly/monthly; `dimension` is group/day/sender/type/records; `window` is complete_days/rolling/previous_week/previous_month. Immediate commands accept only name, rule and output. Run states are queued/running/succeeded/failed/cancelled; exports require succeeded.
+
+Discovery drafts accept `request`, `discover_groups: true`, optional `search_terms` (up to eight terms of 2–60 characters), and `search_days` (default 90, 1–366 or null for the full archive). They return `scope_review` with `proposal.discovery` and cannot be confirmed for execution.
+
+After scope selection, natural-language drafts accept `request`, `groups`, and optional `context` containing the currently edited TaskInput for refinement. Manual drafts use `config`; changes to an existing task include `task_id`. Unresolved `questions` block confirmation; `notes` appear in the review. Up to 100 unfinished drafts are retained, with optimistic revision checks.
+
+Optional `workflow` contains `objective`, `request`, and `steps`; each step has `{kind, title, instruction}`. Statistical kinds match dimension; analysis uses `summary`. Existing `/tasks` and `/commands` remain available for explicit API operations; the new web flow uses draft confirmation.

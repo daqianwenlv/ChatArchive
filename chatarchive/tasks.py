@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from .database import private_dir, read_db
 from .query import NAMES, like
@@ -38,7 +38,7 @@ class Rule(Input):
     keyword: str = Field(default='', max_length=160)
     message_type: str = Field(default='', max_length=32, pattern=r'^[a-z_]*$')
     days: int = Field(default=7, ge=1, le=366)
-    window: Literal['rolling', 'complete_days'] = 'complete_days'
+    window: Literal['rolling', 'complete_days', 'previous_week', 'previous_month'] = 'complete_days'
     dimension: Literal['group', 'day', 'sender', 'type', 'records'] = 'group'
     timezone: str = 'Asia/Shanghai'
 
@@ -59,12 +59,31 @@ class Schedule(Input):
     monthday: int = Field(default=1, ge=1, le=28)
 
 
+class WorkStep(Input):
+    kind: Literal['group', 'day', 'sender', 'type', 'records', 'summary']
+    title: str = Field(min_length=1, max_length=80)
+    instruction: str = Field(default='', max_length=1000)
+
+
+class Workflow(Input):
+    objective: str = Field(min_length=1, max_length=500)
+    request: str = Field(default='', max_length=6000)
+    steps: list[WorkStep] = Field(min_length=1, max_length=6)
+
+    @model_validator(mode='after')
+    def unique_steps(self):
+        if len({s.kind for s in self.steps}) != len(self.steps):
+            raise ValueError('每一种分析步骤只能添加一次')
+        return self
+
+
 class TaskInput(Input):
     name: str = Field(min_length=1, max_length=80)
     rule: Rule
     schedule: Schedule = Field(default_factory=Schedule)
     output: Literal['csv', 'markdown', 'json'] = 'csv'
     enabled: bool = True
+    workflow: Workflow | None = None
 
     @field_validator('name')
     @classmethod
@@ -101,13 +120,26 @@ def next_run(schedule, timezone, after):
     raise ValueError('无法计算下次运行时间')
 
 
-def report(queries, rule, at):
-    """All SQL runs against one consistent archive snapshot, with a time budget."""
+def time_range(rule, at):
     zone = ZoneInfo(rule.timezone)
     end = dt.datetime.fromtimestamp(at, zone)
-    if rule.window == 'complete_days':
+    if rule.window != 'rolling':
         end = end.replace(hour=0, minute=0, second=0, microsecond=0)
-    start = end - dt.timedelta(days=rule.days)
+    if rule.window == 'previous_week':
+        end -= dt.timedelta(days=end.weekday())
+        start = end - dt.timedelta(days=7)
+    elif rule.window == 'previous_month':
+        end = end.replace(day=1)
+        start = (end - dt.timedelta(days=1)).replace(day=1)
+    else:
+        start = end - dt.timedelta(days=rule.days)
+    return start, end
+
+
+def report(queries, rule, at):
+    """All SQL runs against one consistent archive snapshot, with a time budget."""
+    start, end = time_range(rule, at)
+    zone = ZoneInfo(rule.timezone)
     groups = list(dict.fromkeys((g.source, g.id) for g in rule.groups))
     where = '(' + ' OR '.join('(m.source=? AND m.group_id=?)' for _ in groups) + ')'
     args = [v for group in groups for v in group]
@@ -180,6 +212,11 @@ CREATE TABLE IF NOT EXISTS task_runs(id TEXT PRIMARY KEY, task_id TEXT, name TEX
  started_at INTEGER, finished_at INTEGER, status TEXT NOT NULL, error TEXT, result TEXT);
 CREATE INDEX IF NOT EXISTS task_runs_task ON task_runs(task_id,created_at DESC);
 CREATE INDEX IF NOT EXISTS task_runs_status ON task_runs(status,created_at);
+CREATE TABLE IF NOT EXISTS task_versions(task_id TEXT NOT NULL, version INTEGER NOT NULL,
+ config TEXT NOT NULL, actor TEXT NOT NULL, created_at INTEGER NOT NULL, PRIMARY KEY(task_id,version));
+CREATE TABLE IF NOT EXISTS task_run_steps(run_id TEXT NOT NULL, ordinal INTEGER NOT NULL, kind TEXT NOT NULL,
+ title TEXT NOT NULL, status TEXT NOT NULL, started_at INTEGER, finished_at INTEGER, error TEXT,
+ PRIMARY KEY(run_id,ordinal));
 '''
 
 
@@ -189,6 +226,8 @@ class TaskStore:
         private_dir(self.path.parent)
         with self.db() as db:
             db.executescript(SCHEMA)
+            db.execute('''INSERT INTO task_versions(task_id,version,config,actor,created_at)
+                SELECT id,1,config,creator,created_at FROM tasks WHERE id NOT IN (SELECT task_id FROM task_versions)''')
         self.path.chmod(0o600)
 
     @contextmanager
@@ -217,34 +256,51 @@ class TaskStore:
 
     def list(self):
         with self.db() as db:
-            return [self.task_row(r) for r in db.execute('''SELECT t.*,
+            return [self.task_row(r) for r in db.execute('''SELECT t.*,(SELECT MAX(version) FROM task_versions WHERE task_id=t.id) version,
                 (SELECT status FROM task_runs WHERE task_id=t.id ORDER BY created_at DESC,rowid DESC LIMIT 1) last_status,
                 (SELECT id FROM task_runs WHERE task_id=t.id ORDER BY created_at DESC,rowid DESC LIMIT 1) last_run_id
                 FROM tasks t ORDER BY updated_at DESC,id''')]
 
     def get(self, task_id):
         with self.db() as db:
-            row = db.execute('SELECT * FROM tasks WHERE id=?', (task_id,)).fetchone()
+            row = db.execute('SELECT t.*,(SELECT MAX(version) FROM task_versions WHERE task_id=t.id) version FROM tasks t WHERE id=?', (task_id,)).fetchone()
         if row is None:
             raise LookupError('任务不存在')
         return self.task_row(row)
 
+    def save_in_db(self, db, body, actor, task_id, now):
+        upcoming = next_run(body.schedule, body.rule.timezone, now) if body.enabled else None
+        if task_id:
+            if not db.execute('SELECT id FROM tasks WHERE id=?', (task_id,)).fetchone():
+                raise LookupError('任务不存在')
+            version = db.execute('SELECT COALESCE(MAX(version),0)+1 FROM task_versions WHERE task_id=?', (task_id,)).fetchone()[0]
+            db.execute('UPDATE tasks SET config=?,updated_at=?,enabled=?,next_run=? WHERE id=?', (body.model_dump_json(), now, body.enabled, upcoming, task_id))
+        else:
+            if db.execute('SELECT COUNT(*) FROM tasks').fetchone()[0] >= 200:
+                raise ValueError('任务数量已达 200 个上限')
+            task_id, version = uuid.uuid4().hex, 1
+            db.execute('INSERT INTO tasks VALUES(?,?,?,?,?,?,?)', (task_id, body.model_dump_json(), actor, now, now, body.enabled, upcoming))
+        db.execute('INSERT INTO task_versions VALUES(?,?,?,?,?)', (task_id, version, body.model_dump_json(), actor, now))
+        return task_id
+
     def save(self, body, actor, task_id=None, now=None):
         self.validate_rule(body.rule)
         now = int(time.time()) if now is None else now
-        upcoming = next_run(body.schedule, body.rule.timezone, now) if body.enabled else None
         with self.db() as db:
             db.execute('BEGIN IMMEDIATE')
-            if task_id:
-                if not db.execute('SELECT id FROM tasks WHERE id=?', (task_id,)).fetchone():
-                    raise LookupError('任务不存在')
-                db.execute('UPDATE tasks SET config=?,updated_at=?,enabled=?,next_run=? WHERE id=?', (body.model_dump_json(), now, body.enabled, upcoming, task_id))
-            else:
-                if db.execute('SELECT COUNT(*) FROM tasks').fetchone()[0] >= 200:
-                    raise ValueError('任务数量已达 200 个上限')
-                task_id = uuid.uuid4().hex
-                db.execute('INSERT INTO tasks VALUES(?,?,?,?,?,?,?)', (task_id, body.model_dump_json(), actor, now, now, body.enabled, upcoming))
+            task_id = self.save_in_db(db, body, actor, task_id, now)
         return self.get(task_id)
+
+    def versions(self, task_id):
+        self.get(task_id)
+        with self.db() as db:
+            return [{'version': r['version'], 'created_at': r['created_at'], 'config': json.loads(r['config'])}
+                    for r in db.execute('SELECT * FROM task_versions WHERE task_id=? ORDER BY version DESC', (task_id,))]
+
+    def latest_success(self, task_id):
+        with self.db() as db:
+            row = db.execute("SELECT id FROM task_runs WHERE task_id=? AND status='succeeded' ORDER BY created_at DESC,rowid DESC LIMIT 1", (task_id,)).fetchone()
+        return self.run(row['id']) if row else None
 
     def set_enabled(self, task_id, enabled):
         with self.db() as db:
@@ -258,6 +314,7 @@ class TaskStore:
             db.execute('UPDATE tasks SET enabled=?,next_run=?,updated_at=? WHERE id=?', (enabled, upcoming, now, task_id))
             if not enabled:
                 db.execute("UPDATE task_runs SET status='cancelled',finished_at=? WHERE task_id=? AND status='queued' AND trigger='scheduled'", (now, task_id))
+                db.execute("UPDATE task_run_steps SET status='cancelled',finished_at=? WHERE status='queued' AND run_id IN (SELECT id FROM task_runs WHERE task_id=? AND status='cancelled')", (now, task_id))
         return self.get(task_id)
 
     @staticmethod
@@ -267,8 +324,14 @@ class TaskStore:
         if task_id and db.execute("SELECT id FROM task_runs WHERE task_id=? AND status IN ('queued','running')", (task_id,)).fetchone():
             raise ValueError('此任务正在执行或等待执行')
         run_id = uuid.uuid4().hex
+        config = body.model_dump()
+        if task_id:
+            config['plan_version'] = db.execute('SELECT MAX(version) FROM task_versions WHERE task_id=?', (task_id,)).fetchone()[0]
         db.execute('''INSERT INTO task_runs(id,task_id,name,config,actor,trigger,scheduled_at,created_at,status)
-            VALUES(?,?,?,?,?,?,?,?, 'queued')''', (run_id, task_id, body.name, body.model_dump_json(), actor, trigger, at, int(time.time())))
+            VALUES(?,?,?,?,?,?,?,?, 'queued')''', (run_id, task_id, body.name, json.dumps(config, ensure_ascii=False), actor, trigger, at, int(time.time())))
+        steps = getattr(body, 'workflow', None)
+        for i, step in enumerate(steps.steps if steps else [WorkStep(kind=body.rule.dimension, title='生成统计结果')]):
+            db.execute('INSERT INTO task_run_steps(run_id,ordinal,kind,title,status) VALUES(?,?,?,?,?)', (run_id, i, step.kind, step.title, 'queued'))
         return run_id
 
     def enqueue(self, body, actor, task_id=None):
@@ -292,6 +355,8 @@ class TaskStore:
         item = dict(row)
         item['config'] = json.loads(item['config'])
         item['result'] = json.loads(item['result']) if item['result'] else None
+        with self.db() as db:
+            item['steps'] = [dict(r) for r in db.execute('SELECT * FROM task_run_steps WHERE run_id=? ORDER BY ordinal', (run_id,))]
         return item
 
     def tick(self, now=None):
@@ -305,6 +370,8 @@ class TaskStore:
             with self.db() as db:
                 db.execute('BEGIN IMMEDIATE')
                 db.execute("UPDATE task_runs SET status='failed',error='服务中断，未完成统计；请重新运行',finished_at=? WHERE status='running'", (now,))
+                db.execute("UPDATE task_run_steps SET status='failed',error='服务中断',finished_at=? WHERE status='running'", (now,))
+                db.execute("UPDATE task_run_steps SET status='cancelled',finished_at=? WHERE status='queued' AND run_id IN (SELECT id FROM task_runs WHERE status='failed')", (now,))
                 for row in db.execute('SELECT * FROM tasks WHERE enabled=1 AND next_run<=? ORDER BY next_run,id', (now,)).fetchall():
                     body = TaskInput.model_validate_json(row['config'])
                     try:
@@ -321,14 +388,40 @@ class TaskStore:
                         break
                     db.execute("UPDATE task_runs SET status='running',started_at=? WHERE id=?", (int(time.time()), row['id']))
                 try:
-                    rule = Rule.model_validate(json.loads(row['config'])['rule'])
-                    result = report(self.queries, rule, row['scheduled_at'])
+                    result = self.execute(row)
                     status, error, encoded = 'succeeded', None, json.dumps(result, ensure_ascii=False)
                 except Exception as exc:
                     logging.getLogger(__name__).warning('Task run %s failed (%s)', row['id'], type(exc).__name__)
-                    status, error, encoded = 'failed', '统计失败：请检查索引、群范围或缩小统计时间后重试', None
+                    status, error, encoded = 'failed', '执行未完成，请查看失败步骤后重试；上次成功成果仍然保留。', None
+                    with self.db() as db:
+                        db.execute("UPDATE task_run_steps SET status='failed',error=?,finished_at=? WHERE run_id=? AND status='running'", (str(exc)[:300] if isinstance(exc, ValueError) and not hasattr(exc, 'errors') else '读取或处理失败，请检查数据源与服务配置', int(time.time()), row['id']))
+                        db.execute("UPDATE task_run_steps SET status='cancelled' WHERE run_id=? AND status='queued'", (row['id'],))
                 with self.db() as db:
                     db.execute('UPDATE task_runs SET status=?,error=?,result=?,finished_at=? WHERE id=?', (status, error, encoded, int(time.time()), row['id']))
+
+
+    def execute(self, run):
+        config = json.loads(run['config'])
+        rule = Rule.model_validate(config['rule'])
+        workflow = Workflow.model_validate(config['workflow']) if config.get('workflow') else None
+        steps = workflow.steps if workflow else [WorkStep(kind=rule.dimension, title='生成统计结果')]
+        reports = []
+        for i, step in enumerate(steps):
+            with self.db() as db:
+                db.execute("UPDATE task_run_steps SET status='running',started_at=? WHERE run_id=? AND ordinal=?", (int(time.time()), run['id'], i))
+            current = report(self.queries, rule.model_copy(update={'dimension': 'records' if step.kind == 'summary' else step.kind}), run['scheduled_at'])
+            if step.kind == 'summary':
+                from .planning import summarize
+                current['analysis'] = summarize(step.instruction or workflow.objective, current)
+            current['step'] = step.model_dump()
+            reports.append(current)
+            with self.db() as db:
+                db.execute("UPDATE task_run_steps SET status='succeeded',finished_at=? WHERE run_id=? AND ordinal=?", (int(time.time()), run['id'], i))
+        # Keep legacy result exports compatible. JSON contains every step result.
+        result = dict(reports[0])
+        if workflow:
+            result['sections'] = reports
+        return result
 
 
 class TaskWorker:
@@ -353,10 +446,22 @@ class TaskWorker:
         self.wake_event.set()
 
 
-def export_run(run, format):
+def export_run(run, format, section=None):
     if run['status'] != 'succeeded':
         raise ValueError('此运行尚未生成结果')
     result = run['result']
+    if section is not None:
+        sections = result.get('sections', [result])
+        if section < 0 or section >= len(sections):
+            raise ValueError('结果步骤不存在')
+        result = sections[section]
+        run = {**run, 'result': result}
+    if result.get('analysis') and format != 'json':
+        analysis = result['analysis']
+        result = {**result, 'columns': [{'key':'kind','label':'类别'}, {'key':'text','label':'发现'}, {'key':'citations','label':'原文引用'}],
+            'rows': [{'kind': '待确认' if f['kind']=='follow_up' else '原文事实', 'text': f['text'],
+                'citations': '; '.join(c['source']+':'+c['id'] for c in f['citations'])} for f in analysis['findings']],
+            'notes': result['notes']+' 内容分析样本: '+str(analysis['sampled'])+' / '+str(analysis['matched'])+' 条。'}
     if format == 'json':
         return json.dumps(run, ensure_ascii=False, indent=2), 'application/json', 'json'
     columns, rows = result['columns'], result['rows']

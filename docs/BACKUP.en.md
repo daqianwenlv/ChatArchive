@@ -75,3 +75,5 @@ A backup can predate a password change, account disablement or key revocation. R
 Practice in isolation first. `scripts/verify_docker.py` exercises recovery and switching back using fictional data.
 
 Tasks and run snapshots live in `tasks.sqlite3` and are included in backups. Restore pauses every task and cancels queued/running executions. Review rules after signing in before resuming schedules. Older backups without this database remain supported.
+
+Version 0.4 also stores drafts, plan versions and per-step status in the task database. Downgrading to 0.3 requires restoring the pre-upgrade task database as well: older code cannot parse workflows or calendar week/month rules. Do not run new rules with an older scheduler.

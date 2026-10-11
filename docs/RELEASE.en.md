@@ -2,7 +2,7 @@
 
 **English** · [简体中文](RELEASE.md)
 
-The current scope is a single-workspace query preview: local login, archive imports, queries, MCP, backup and recovery. A raw-event store, platform collection management, member roles, DingTalk collection and built-in model analysis are future work.
+The current scope is a single-workspace archive and tasks preview: local login, imports, queries, MCP, optional model planning and cited sample analysis, task workspaces, backup and recovery. A raw-event store, platform collection management, member roles, DingTalk collection and attachment content analysis are future work.
 
 ## Verification
 

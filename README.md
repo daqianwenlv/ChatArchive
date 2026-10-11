@@ -11,7 +11,7 @@ Bring existing Feishu, WeCom and WeChat exports into one place. Find conversatio
 
 自托管的企业聊天记录查询与分析系统。统一管理已有归档，检索消息、查看群聊统计，并通过 HTTP API 或 MCP 接入业务平台和 AI 工具。[阅读中文说明 →](README.zh-CN.md)
 
-Current version: **0.3.0-preview.1 — single-workspace archive and tasks preview**. The web console is currently in Chinese; project documentation is available in English and Chinese.
+Current version: **0.4.0-preview.1 — single-workspace archive and tasks preview**. The web console is currently in Chinese; project documentation is available in English and Chinese.
 
 ![ChatArchive group directory with fictional sample data](docs/images/overview.jpg)
 
@@ -22,8 +22,8 @@ Current version: **0.3.0-preview.1 — single-workspace archive and tasks previe
 - **Browse conversations:** group names or IDs, archived message counts, source filters and archive coverage.
 - **Search records:** filter by source, conversation, date, message type and literal text; inspect the original message text and identifiers.
 - **Review activity:** daily trends, participating accounts, sending hours, message types and frequent terms with links back to messages.
-- **Run commands:** choose up to 50 groups across sources, filter messages and generate statistics or a record inventory.
-- **Schedule tasks:** save rules for daily, weekly or monthly execution; review persistent runs and export CSV, Markdown or JSON. [Task behavior and limits](docs/TASKS.en.md).
+- **Plan in plain language:** describe the work first. Find candidate groups from names and archived message text, inspect matching excerpts, and select the scope before reviewing an ordered plan. AI interpretation is optional; local keyword retrieval and manual planning also work.
+- **Keep a task workspace:** confirm once, run on a daily, weekly or monthly schedule, and retain reports, original references and plan versions. Export CSV, Markdown or JSON. [Task behavior and limits](docs/TASKS.en.md).
 - **Connect your tools:** five read-only MCP tools and an HTTP API, with keys restricted by source, group, permission and expiry.
 - **Manage access:** local administrator accounts, mandatory initial password change, logout and revocable sessions; an optional trusted-proxy adapter for existing Feishu administrator authentication.
 - **Maintain your archive:** verified database backups, restore into a new directory or volume, and a diagnostic command.
@@ -34,9 +34,13 @@ ChatArchive runs on infrastructure you control. Use its web console as a standal
 
 ### Command console and recurring tasks
 
-Choose groups across sources, filter the records and preview the statistics rule. Run once, or save a daily, weekly or monthly task. Every run retains its result and message references, with CSV, Markdown and JSON downloads.
+Describe the work without remembering group names. Inspect suggested groups and their matching messages, select the scope, then review the plan and adjust its steps. Nothing runs until you confirm. Each task then has a permanent page for its latest report, execution history and versioned agreement. Model-based planning and cited summaries use an explicitly configured AI service; without it, the console offers manual plans.
 
-![Cross-group command console with a weekly task rule and fictional groups](docs/images/command-console.jpg)
+![Finding relevant groups from a request, with matching excerpts and explicit selection](docs/images/group-discovery.jpg)
+
+![Reviewing an ordered execution plan with fictional groups](docs/images/task-plan.jpg)
+
+![A permanent task page with a completed report and preserved history](docs/images/task-topic.jpg)
 
 ### Group analysis
 
@@ -155,7 +159,7 @@ The example uses the official MCP Python SDK to initialize, discover tools and q
 | WeChat | Historical exports and unified search | Live personal WeChat collection |
 | DingTalk | Reserved source in the data model | Collection connector |
 | Accounts | Local administrators, password management and revocable sessions | Member roles, invitations, MFA and multiple tenants |
-| Analytics | Trends, hours, message types, accounts and frequent terms linked to records | Built-in model reports and employee performance evaluations |
+| Analytics | Group statistics, optional natural-language plans and cited sample summaries | Attachment content analysis and employee performance evaluations |
 
 Frequent terms use at most the latest 3,000 eligible text messages within the current scope and show the sample size. Undated messages remain searchable but do not contribute to daily statistics. Chat activity does not directly measure employee workload or performance.
 

@@ -26,7 +26,7 @@ async function api(path,values={},options={}){
  if(!r.ok)throw Error(data.error||data.detail||'请求未完成');return data;
 }
 function showLogin(url){
- taskClear();state.epoch++;state.me=null;state.sources=[];state.visibleMessages=[];state.currentGroup=null;state.keys=[];state.selectedGroups.clear();
+ taskClear();workspaceClear();state.epoch++;state.me=null;state.sources=[];state.visibleMessages=[];state.currentGroup=null;state.keys=[];state.selectedGroups.clear();
  document.querySelectorAll('dialog[open]').forEach(d=>d.close());$('account-menu').open=false;
  $('page-content').replaceChildren();$('message-body').replaceChildren();$('new-token').value='';
  document.body.classList.add('locked');$('auth-screen').hidden=false;document.title='登录 · ChatArchive';
@@ -122,8 +122,8 @@ async function load(){const epoch=++state.epoch;if(state.renderedRoute!==locatio
  $('auth-screen').hidden=true;document.body.classList.remove('locked');
  const src=await api('sources');if(epoch!==state.epoch)return;state.sources=src.sources;state.timezone=src.timezone;document.querySelector('.timezone').textContent=src.timezone;state.indexed=src.indexed_at;$('updated-at').textContent='索引更新 '+date(src.indexed_at,true);$('system-status').textContent='查询服务已连接';
  const r=route(),nav=['source','group'].includes(r.page)?'sources':r.page==='runs'?'tasks':r.page;document.querySelectorAll('[data-nav]').forEach(a=>a.classList.toggle('selected',a.dataset.nav===nav));
- const page=r.page==='overview'?await overview():r.page==='sources'?await sourcesPage():r.page==='source'?await sourceDetail(r):r.page==='group'?await groupDetail(r):r.page==='mcp'?await mcpPage():r.page==='console'?await consolePage(r):r.page==='tasks'?await tasksPage(r):r.page==='runs'?await taskRunPage(r):empty('页面不存在');
- if(epoch!==state.epoch)return;$('page-content').innerHTML=page;taskMount(r);$('footer-status').textContent=(src.sources.some(s=>s.mode==='continuous')?'采集索引':'已导入记录')+' · 时区 '+src.timezone;
+ const page=r.page==='overview'?await overview():r.page==='sources'?await sourcesPage():r.page==='source'?await sourceDetail(r):r.page==='group'?await groupDetail(r):r.page==='mcp'?await mcpPage():r.page==='console'?await workspaceConsolePage(r):r.page==='tasks'?await workspaceTasksPage(r):r.page==='runs'?await workspaceRunPage(r):empty('页面不存在');
+ if(epoch!==state.epoch)return;$('page-content').innerHTML=page;if(r.page!=='console')taskMount(r);workspaceMount(r);$('footer-status').textContent=(src.sources.some(s=>s.mode==='continuous')?'采集索引':'已导入记录')+' · 时区 '+src.timezone;
  if(src.sources.some(s=>s.mode==='continuous')&&src.indexed_at&&Date.now()-Date.parse(src.indexed_at)>20*60000){$('notice').textContent='查询索引更新延迟，当前显示最近一次完整数据。';$('notice').hidden=false;}
  }catch(e){if(epoch===state.epoch){$('notice').textContent=e.message;$('notice').hidden=false;$('page-content').innerHTML=empty('暂时无法读取数据','请检查登录状态，或点击右上角刷新。');$('system-status').textContent='连接需检查';}}
  finally{if(epoch===state.epoch){$('page-content').removeAttribute('aria-busy');$('refresh').disabled=false;}}
@@ -163,5 +163,5 @@ window.addEventListener('pageshow',e=>{if(e.persisted){state.me=null;load();}});
 
 $('refresh').onclick=()=>load();
 window.addEventListener('hashchange',()=>{state.groupFilter.offset=0;state.currentGroup=null;load();window.scrollTo({top:0,behavior:'instant'});});
-taskBind();
+taskBind();workspaceBind();
 load();
