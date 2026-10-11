@@ -22,6 +22,7 @@ jobs:
       - run: python -m pip check
       - run: python -m pytest tests -q
       - run: node --check web/app.js
+      - run: node --check web/tasks.js
       - run: python scripts/package_source.py
       - run: python scripts/release_check.py
       - run: python -m pip_audit -r requirements.lock --no-deps --disable-pip --strict --format json --output dependency-audit.json
