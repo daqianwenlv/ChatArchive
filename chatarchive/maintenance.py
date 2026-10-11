@@ -130,6 +130,8 @@ def restore(bundle, data):
                 with closing(sqlite3.connect(temp/'tasks.sqlite3')) as db:
                     db.execute('PRAGMA trusted_schema=OFF')
                     db.execute('UPDATE tasks SET enabled=0,next_run=NULL')
+                    if db.execute("SELECT name FROM sqlite_master WHERE name='task_run_steps'").fetchone():
+                        db.execute("UPDATE task_run_steps SET status='cancelled',error='Restored backup',finished_at=? WHERE status IN ('queued','running')", (int(time.time()),))
                     db.execute("UPDATE task_runs SET status='cancelled',error='Restored backup: run cancelled',finished_at=? WHERE status IN ('queued','running')", (int(time.time()),))
                     db.commit()
             for name in files:
