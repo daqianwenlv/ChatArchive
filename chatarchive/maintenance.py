@@ -10,6 +10,7 @@ DATABASES = {
     'archive.sqlite3': {'sources', 'groups', 'messages', 'metadata'},
     'access.sqlite3': {'tokens', 'audit'},
     'accounts.sqlite3': {'users', 'sessions', 'login_limits'},
+    'tasks.sqlite3': {'tasks', 'task_runs'},
 }
 MAX_MANIFEST_BYTES = 65536
 
@@ -124,6 +125,12 @@ def restore(bundle, data):
                     db.execute('DELETE FROM login_limits')
                     db.execute("UPDATE users SET password='',must_change=1 WHERE external_id IS NULL")
                     db.execute('UPDATE users SET disabled=1 WHERE external_id IS NOT NULL')
+                    db.commit()
+            if (temp/'tasks.sqlite3').exists():
+                with closing(sqlite3.connect(temp/'tasks.sqlite3')) as db:
+                    db.execute('PRAGMA trusted_schema=OFF')
+                    db.execute('UPDATE tasks SET enabled=0,next_run=NULL')
+                    db.execute("UPDATE task_runs SET status='cancelled',error='Restored backup: run cancelled',finished_at=? WHERE status IN ('queued','running')", (int(time.time()),))
                     db.commit()
             for name in files:
                 destination = data/name

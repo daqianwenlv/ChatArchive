@@ -1,2 +1,2 @@
 """ChatArchive: private chat retrieval and evidence-based analysis."""
-__version__ = '0.2.3-preview.1'
+__version__ = '0.3.0-preview.1'
