@@ -4,6 +4,7 @@
 
 ## 0.4.0-preview.1 — Requests, reviewed plans and task workspaces
 
+- Start with intent, discover groups from names and archived message text, inspect evidence and select the scope; refine search windows or supplement groups manually.
 - Natural-language requests, clarification, persisted drafts and editable confirmation plans; optional JSON model service with manual planning when unconfigured.
 - Ordered execution after confirmation, immutable plan versions, and permanent pages for reports, history and agreements.
 - Previous calendar week/month windows, cited sample analysis, per-step status and exports.

@@ -22,7 +22,7 @@ Current version: **0.4.0-preview.1 — single-workspace archive and tasks previe
 - **Browse conversations:** group names or IDs, archived message counts, source filters and archive coverage.
 - **Search records:** filter by source, conversation, date, message type and literal text; inspect the original message text and identifiers.
 - **Review activity:** daily trends, participating accounts, sending hours, message types and frequent terms with links back to messages.
-- **Plan in plain language:** describe the work, clarify missing details, then review groups, reporting dates and ordered steps before confirming. Optional AI configuration is required; manual planning also works.
+- **Plan in plain language:** describe the work first. Find candidate groups from names and archived message text, inspect matching excerpts, and select the scope before reviewing an ordered plan. AI interpretation is optional; local keyword retrieval and manual planning also work.
 - **Keep a task workspace:** confirm once, run on a daily, weekly or monthly schedule, and retain reports, original references and plan versions. Export CSV, Markdown or JSON. [Task behavior and limits](docs/TASKS.en.md).
 - **Connect your tools:** five read-only MCP tools and an HTTP API, with keys restricted by source, group, permission and expiry.
 - **Manage access:** local administrator accounts, mandatory initial password change, logout and revocable sessions; an optional trusted-proxy adapter for existing Feishu administrator authentication.
@@ -34,7 +34,9 @@ ChatArchive runs on infrastructure you control. Use its web console as a standal
 
 ### Command console and recurring tasks
 
-Describe the work, review the plan and adjust its steps. Nothing runs until you confirm. Each task then has a permanent page for its latest report, execution history and versioned agreement. Model-based planning and cited summaries use an explicitly configured AI service; without it, the console offers manual plans.
+Describe the work without remembering group names. Inspect suggested groups and their matching messages, select the scope, then review the plan and adjust its steps. Nothing runs until you confirm. Each task then has a permanent page for its latest report, execution history and versioned agreement. Model-based planning and cited summaries use an explicitly configured AI service; without it, the console offers manual plans.
+
+![Finding relevant groups from a request, with matching excerpts and explicit selection](docs/images/group-discovery.jpg)
 
 ![Reviewing an ordered execution plan with fictional groups](docs/images/task-plan.jpg)
 
