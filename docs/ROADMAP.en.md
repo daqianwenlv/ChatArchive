@@ -22,7 +22,7 @@ Add connection setup, identity checks, group discovery, selected collection scop
 
 ## Later integrations
 
-Evaluate DingTalk connectors, attachment processing, full archive exports, OAuth discovery, optional S3-compatible storage, and model-generated reports with message evidence. Add each capability only with a working implementation and its own verification.
+Evaluate DingTalk connectors, attachment processing, full archive exports, OAuth discovery, optional S3-compatible storage, and larger-scope content analysis beyond the current cited sample summaries. Add each capability only with a working implementation and its own verification.
 
 ## Stable-release work
 
