@@ -2,6 +2,13 @@
 
 **English** · [简体中文](CHANGELOG.md)
 
+## 0.3.0-preview.1 — Command console and recurring tasks
+
+- Added cross-group statistics, daily/weekly/monthly schedules, pause/resume and manual runs.
+- Persisted rules, run status, result snapshots and message references; CSV, Markdown and JSON exports.
+- Host process lock prevents duplicate workers. Restoring a backup pauses schedules and cancels unfinished runs.
+- Task endpoints require an administrator and inherit origin checks and auditing.
+
 ## 0.2.3-preview.1 — Independent installation and maintenance
 
 - Documented clean installation, local login, fictional sample data and a synthetic screenshot.

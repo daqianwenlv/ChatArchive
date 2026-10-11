@@ -11,7 +11,7 @@ Bring existing Feishu, WeCom and WeChat exports into one place. Find conversatio
 
 自托管的企业聊天记录查询与分析系统。统一管理已有归档，检索消息、查看群聊统计，并通过 HTTP API 或 MCP 接入业务平台和 AI 工具。[阅读中文说明 →](README.zh-CN.md)
 
-Current version: **0.2.3-preview.1 — single-workspace query preview**. The web console is currently in Chinese; project documentation is available in English and Chinese.
+Current version: **0.3.0-preview.1 — single-workspace archive and tasks preview**. The web console is currently in Chinese; project documentation is available in English and Chinese.
 
 ![ChatArchive group directory with fictional sample data](docs/images/overview.jpg)
 
@@ -22,6 +22,8 @@ Current version: **0.2.3-preview.1 — single-workspace query preview**. The web
 - **Browse conversations:** group names or IDs, archived message counts, source filters and archive coverage.
 - **Search records:** filter by source, conversation, date, message type and literal text; inspect the original message text and identifiers.
 - **Review activity:** daily trends, participating accounts, sending hours, message types and frequent terms with links back to messages.
+- **Run commands:** choose up to 50 groups across sources, filter messages and generate statistics or a record inventory.
+- **Schedule tasks:** save rules for daily, weekly or monthly execution; review persistent runs and export CSV, Markdown or JSON. [Task behavior and limits](docs/TASKS.en.md).
 - **Connect your tools:** five read-only MCP tools and an HTTP API, with keys restricted by source, group, permission and expiry.
 - **Manage access:** local administrator accounts, mandatory initial password change, logout and revocable sessions; an optional trusted-proxy adapter for existing Feishu administrator authentication.
 - **Maintain your archive:** verified database backups, restore into a new directory or volume, and a diagnostic command.
@@ -29,6 +31,12 @@ Current version: **0.2.3-preview.1 — single-workspace query preview**. The web
 ChatArchive runs on infrastructure you control. Use its web console as a standalone application, or let other platforms query the same backend through authorized interfaces. It reads existing archives; platform collection setup and a unified raw-event store are planned separately.
 
 ## Product tour
+
+### Command console and recurring tasks
+
+Choose groups across sources, filter the records and preview the statistics rule. Run once, or save a daily, weekly or monthly task. Every run retains its result and message references, with CSV, Markdown and JSON downloads.
+
+![Cross-group command console with a weekly task rule and fictional groups](docs/images/command-console.jpg)
 
 ### Group analysis
 
