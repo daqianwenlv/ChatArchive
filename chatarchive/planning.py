@@ -8,10 +8,14 @@ from pydantic import Field, field_validator
 from .ai import Model, ModelUnavailable
 from .tasks import Input, TaskInput, GroupRef, Workflow, WorkStep, Rule
 from .security import Principal
+from .discovery import discover, SearchIntent
 
 
 class DraftInput(Input):
     request: str = Field(default='', max_length=6000)
+    discover_groups: bool = False
+    search_terms: list[str] | None = Field(default=None, max_length=8)
+    search_days: int | None = Field(default=90, ge=1, le=366)
     groups: list[GroupRef] = Field(default_factory=list, max_length=50)
     config: TaskInput | None = None
     context: TaskInput | None = None
@@ -30,6 +34,8 @@ class ConfirmInput(Input):
 
 
 class Proposal(Input):
+    discovery_failed: bool = False
+    discovery: dict | None = None
     config: TaskInput | None = None
     questions: list[str] = Field(default_factory=list, max_length=8)
     notes: list[str] = Field(default_factory=list, max_length=8)
@@ -105,6 +111,18 @@ class DraftStore:
                     raise ValueError('草稿已达 100 个，请先完成或归档不需要的草稿')
                 draft_id, revision = uuid.uuid4().hex, 1
                 db.execute('INSERT INTO task_drafts VALUES(?,?,?,?,?,?,?,?,?,?,?)', (draft_id, body.request, '{}', 'preparing', revision, body.task_id, task['version'] if task else None, actor, now, now, None))
+        if body.discover_groups:
+            try:
+                if not body.request.strip():raise ValueError('请先写下希望完成的工作。')
+                if body.search_terms is not None:SearchIntent(terms=body.search_terms)
+                proposal=Proposal(discovery=discover(self.tasks.queries,Principal('planner',admin=True),body.request,body.search_terms,body.search_days,self.model))
+                status='scope_review'
+            except (ValueError,LookupError,FileNotFoundError) as exc:
+                proposal=Proposal(discovery_failed=True,questions=[str(exc)[:300] if not hasattr(exc,'errors') else '搜索线索格式不完整，请修改后再试。'])
+                status='error'
+            with self.tasks.db() as db:
+                db.execute('UPDATE task_drafts SET proposal=?,status=?,updated_at=? WHERE id=? AND revision=?',(proposal.model_dump_json(),status,int(time.time()),draft_id,revision))
+            return self.get(draft_id)
         try:
             if body.config:
                 proposal = Proposal(config=body.config, notes=body.review_notes)
@@ -121,6 +139,7 @@ class DraftStore:
                     'selected_groups': groups, 'supplied_groups': [{k:g.get(k) for k in ('source','id','display_name','message_count')} for g in catalog],
                     'current_config': body.context.model_dump() if body.context else ({k:task[k] for k in ('name','rule','schedule','output','workflow') if k in task} if task else None),
                     'default_timezone': 'Asia/Shanghai', 'schema': TaskInput.model_json_schema()})
+                if raw.get('discovery') is not None or raw.get('discovery_failed'):raise ValueError('AI 返回的方案格式不正确，请重试。')
                 proposal = Proposal.model_validate(raw)
                 if proposal.config and groups:
                     chosen = {(g.source,g.id) for g in proposal.config.rule.groups}
