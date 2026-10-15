@@ -2,6 +2,13 @@
 
 **English** · [简体中文](CHANGELOG.md)
 
+## Unreleased — Complete archive
+
+- Syncs and imports merge: records and group names removed or blanked upstream stay archived.
+- Each message keeps its raw upstream record (mentions, cards, quotes); message details show the quoted message.
+- Image and file originals are stored under `media/` with the sync, deduplicated and verified by SHA-256; new `GET /api/media`.
+- Backup, restore and doctor include attachments; older indexes upgrade on the next import.
+
 ## 0.4.0-preview.1 — Requests, reviewed plans and task workspaces
 
 - Start with intent, discover groups from names and archived message text, inspect evidence and select the scope; refine search windows or supplement groups manually.

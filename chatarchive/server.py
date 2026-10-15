@@ -13,6 +13,7 @@ from mcp.server.transport_security import TransportSecuritySettings
 from pydantic import BaseModel,Field
 from . import __version__
 from .query import Queries
+from .media import INLINE
 from .security import AccessStore,Principal,PERMISSIONS
 from .accounts import Accounts,LoginLimited,SESSION_SECONDS
 from .tasks import TaskStore,TaskWorker,TaskInput,CommandInput,export_run,time_range
@@ -216,6 +217,12 @@ def create_app(data_dir=None,*,trust_proxy=None,admin_token=None,base_url=None,s
     def messages(request:Request,source:str|None=None,group_id:str|None=None,q:str='',msg_type:str|None=None,start:str|None=None,end:str|None=None,limit:int=50,offset:int=0):return queries.messages(request.state.principal,source,group_id,q,msg_type,start,end,limit,offset)
     @app.get('/api/message')
     def message(request:Request,source:str,message_id:str):return queries.message(request.state.principal,source,message_id)
+    @app.get('/api/media')
+    def media(request:Request,source:str,message_id:str):
+        path,name,mime=queries.media(request.state.principal,source,message_id)
+        # Only known raster images render inline; anything else (including SVG/HTML) downloads.
+        inline=mime in INLINE
+        return FileResponse(path,media_type=mime if inline else 'application/octet-stream',filename=name,content_disposition_type='inline' if inline else 'attachment')
     @app.get('/api/analysis')
     def analysis(request:Request,source:str|None=None,group_id:str|None=None,start:str|None=None,end:str|None=None):return queries.analysis(request.state.principal,source,group_id,start,end)
     @app.get('/api/integration')

@@ -1,7 +1,9 @@
 from __future__ import annotations
 import collections, datetime as dt, json, logging, os, re
 from zoneinfo import ZoneInfo
+from pathlib import Path
 from .database import read_db
+from .media import media_path
 
 TZ=ZoneInfo(os.environ.get('CHATARCHIVE_TIMEZONE','Asia/Shanghai'))
 NAMES={'feishu':'飞书','wecom':'企业微信','wechat':'微信','dingtalk':'钉钉'}
@@ -76,7 +78,7 @@ class Queries:
         return self.group_row(r)
     @staticmethod
     def message_row(r):
-        d=dict(r);d['sent_at']=iso(d.pop('ts'));d['display_name']=d['group_name'] or d['group_id'];d['sender']=d['sender_name'] or d['sender_id'] or '未知发送者';d['deleted']=bool(d['deleted']);return d
+        d=dict(r);d.pop('raw',None);d['sent_at']=iso(d.pop('ts'));d['media_available']=bool(d.get('media_sha256'));d['display_name']=d['group_name'] or d['group_id'];d['sender']=d['sender_name'] or d['sender_id'] or '未知发送者';d['deleted']=bool(d['deleted']);return d
     def messages(self,p,source=None,group_id=None,q='',msg_type=None,start=None,end=None,limit=50,offset=0):
         p.require('messages:read');limit=max(1,min(int(limit),100));offset=max(0,min(int(offset),1000000))
         where,args=self.filters(p,source,group_id,start,end,q,msg_type)
@@ -88,8 +90,20 @@ class Queries:
         p.require('messages:read');where,args=self.filters(p,source)
         with read_db(self.path) as c:
             r=c.execute(f'''SELECT m.*,g.name group_name FROM messages m JOIN groups g ON g.source=m.source AND g.id=m.group_id WHERE {where} AND m.id=?''',args+[message_id]).fetchone()
-        if r is None:raise LookupError('记录不存在或不在授权范围内')
-        return self.message_row(r)
+            if r is None:raise LookupError('记录不存在或不在授权范围内')
+            item=self.message_row(r)
+            try:item['raw']=json.loads(r['raw']) if 'raw' in r.keys() else {}
+            except ValueError:item['raw']={}
+            # The quoted message, when it is also archived and within the same scope.
+            parent=c.execute(f'''SELECT m.id,m.ts,m.sender_id,m.sender_name,m.type,m.text,m.deleted FROM messages m WHERE {where} AND m.id=?''',args+[r['parent_id']]).fetchone() if r['parent_id'] else None
+        item['parent']={'id':parent['id'],'sent_at':iso(parent['ts']),'sender':parent['sender_name'] or parent['sender_id'] or '未知发送者','type':parent['type'],'text':parent['text'][:2000],'deleted':bool(parent['deleted'])} if parent else None
+        return item
+    def media(self,p,source,message_id):
+        item=self.message(p,source,message_id)
+        if not item.get('media_sha256'):raise LookupError('该消息没有已归档的附件')
+        path=media_path(Path(self.path).parent/'media',item['media_sha256'])
+        if not path.is_file():raise LookupError('附件文件缺失，请运行 doctor 检查')
+        return path,item['media_name'] or item['media_sha256'],item['media_mime']
     def analysis(self,p,source=None,group_id=None,start=None,end=None):
         p.require('analysis:read');where,args=self.filters(p,source,group_id,start,end)
         with read_db(self.path) as c:

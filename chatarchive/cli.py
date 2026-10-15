@@ -2,7 +2,8 @@
 from __future__ import annotations
 import argparse,datetime as dt,json,os,secrets,sqlite3,tempfile
 from pathlib import Path
-from .database import SCHEMA,finalize,private_dir,index_lock
+from .database import SCHEMA,finalize,private_dir,index_lock,upgrade
+from .media import MediaStore
 from .importer import insert,import_wecom
 from .security import AccessStore
 
@@ -25,10 +26,10 @@ def main():
 
 def import_records(args,target):
  if args.command=='init' and target.exists():raise SystemExit('Index already exists; nothing changed.')
- fd,temp=tempfile.mkstemp(prefix='.import-',suffix='.sqlite3',dir=args.data);os.close(fd);con=sqlite3.connect(temp)
+ fd,temp=tempfile.mkstemp(prefix='.import-',suffix='.sqlite3',dir=args.data);os.close(fd);con=sqlite3.connect(temp);media=MediaStore(args.data/'media')
  try:
   if target.exists():
-   old=sqlite3.connect(target.resolve().as_uri()+'?mode=ro',uri=True);old.backup(con);old.close()
+   old=sqlite3.connect(target.resolve().as_uri()+'?mode=ro',uri=True);old.backup(con);old.close();upgrade(con)
   else:
    con.executescript(SCHEMA)
    con.executemany('INSERT INTO sources VALUES(?,?,?,?,?,?)',[(s,name,'unconfigured',None,'not_connected','{}') for s,name in NAMES.items()])
@@ -38,15 +39,16 @@ def import_records(args,target):
     for line in f:
      if not line.strip():continue
      r=json.loads(line)
-     if r.get('source') not in NAMES or not r.get('id'):raise ValueError('Invalid source or ID')
+     if r.get('source') not in NAMES or not r.get('message_id' if r.get('kind') in ('media','media_part') else 'id'):raise ValueError('Invalid source or ID')
      if r.get('kind')=='message' and not r.get('group_id'):raise ValueError('Missing group_id')
-     insert(con,r);seen.add(r['source'])
+     insert(con,r,media);seen.add(r['source'])
   elif args.command=='import-wecom':import_wecom(con,args.file);seen.add('wecom')
   stamp=dt.datetime.now(dt.timezone.utc).isoformat(timespec='seconds')
   for s in seen:con.execute("UPDATE sources SET mode='import',status='imported',synced_at=? WHERE source=?",(stamp,s))
   con.execute('INSERT OR REPLACE INTO metadata VALUES(?,?)',('indexed_at',stamp));finalize(con);con.close();con=None;os.chmod(temp,0o600);os.replace(temp,target)
   print(json.dumps({'ok':True,'index':str(target),'sources':sorted(seen)}))
  finally:
+  media.close()
   if con:con.close()
   if os.path.exists(temp):os.unlink(temp)
 

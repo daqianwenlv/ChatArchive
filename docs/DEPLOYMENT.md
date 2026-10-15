@@ -14,6 +14,8 @@
 
 从 0.2.0 升级时，旧的内置 chatlog 路径不再生效。显式传入 `--chatlog-root` 或设置 `CHATARCHIVE_CHATLOG_ROOT`；连接标签使用 `--connection-label`，默认 `archive`。路径按 Python 字符串传给远端，不拼接 shell 命令。未配置路径时默认 `/data/chatlog`；目录不存在会失败并保留前一查询快照。
 
+每次同步合并到上一快照：上游已删除的记录继续保留。消息带 `media_path` 时，附件原件随同步传回并保存在数据目录 `media/`，已归档的附件不会重复传输。相对路径按 `--media-root`（或 `CHATARCHIVE_MEDIA_ROOT`，默认为 chatlog 根目录）解析，根目录以外的路径一律不读取。单个附件上限由 `CHATARCHIVE_MEDIA_MAX_BYTES` 控制，默认 512 MiB。企业微信库只含明文与 `sdkfileid`，原件需要平台 SDK 下载，目前仍为未下载状态，`sdkfileid` 保存在原始记录中。
+
 systemd 样例读取 `/etc/chatarchive-index.env`，模板为 `deploy/chatarchive-index.env.example`。迁移时先复制所需旧配置到新的私有环境文件，限制为 root 可读，再在临时输出路径验证索引。需要合并 CLI 群目录时增加 `--profile primary=YOUR_PROFILE`；支持多次传入，部署机须安装并配置 lark-cli。
 
 先验证来源计数、群名、连接标签和正文，再切换定时任务。不要用源码包的样例覆盖正在运行的环境文件。原服务配置与原查询快照保留用于回退。

@@ -6,7 +6,11 @@
 
 JSONL 群对象：`kind=group`，`source` 为 feishu/wecom/wechat/dingtalk，`id` 为平台原始群编号，`name` 为可空名称，`conversation_kind` 为 group/private，`connection` 为可选连接标签，`enabled`、`in_chat` 和 `last_sync` 为可空状态。
 
-消息对象：`kind=message`，`source`、`id`、`group_id` 必填；`ts` 为毫秒时间戳或 null；`sender_id` 与 `sender_name` 分别是身份与显示名称；`type`、`text`、`deleted`、`parent_id`、`media_state` 为类型、正文、撤回标记、回复引用和附件状态。标准视频/语音类型为 video/voice，导入时归一化 media/audio。缺失群名显示编号，不用推测名称。示例数据完全虚构。
+消息对象：`kind=message`，`source`、`id`、`group_id` 必填；`ts` 为毫秒时间戳或 null；`sender_id` 与 `sender_name` 分别是身份与显示名称；`type`、`text`、`deleted`、`parent_id`、`media_state` 为类型、正文、撤回标记、回复引用和附件状态。标准视频/语音类型为 video/voice，导入时归一化 media/audio。缺失群名显示编号，不用推测名称。示例数据完全虚构。可选 `raw` 为上游原始对象，原样保存（提及、卡片、引用等未归一化字段都在其中）。
+
+附件对象：一个或多个 `kind=media_part`（`source`、`message_id`、Base64 `data`），之后一条 `kind=media`（`source`、`message_id`、`sha256`、`bytes`、`name`、`mime`）。内容校验通过后保存到 `<数据目录>/media/<前两位>/<sha256>`，消息 `media_state` 记为 `archived`。
+
+导入是合并：同一消息再次出现时更新字段，但空正文、空群名或缺失附件不会覆盖已归档内容；上游删除的记录继续保留，撤回只增加标记。
 
 ## HTTP
 
@@ -18,7 +22,8 @@ JSONL 群对象：`kind=group`，`source` 为 feishu/wecom/wechat/dingtalk，`id
 | GET /groups | source, q, kind=group/private/all, status=all/archived/uncovered, limit, offset | groups:read |
 | GET /group | source, group_id | groups:read |
 | GET /messages | source, group_id, q, msg_type, start, end, limit, offset | messages:read |
-| GET /message | source, message_id | messages:read |
+| GET /message | source, message_id；另返回 `raw` 原始记录与 `parent` 被回复消息（同一授权范围内） | messages:read |
+| GET /media | source, message_id；返回已归档附件原件，常见位图内联显示，其余作为下载 | messages:read |
 | GET /analysis | source, group_id, start, end | analysis:read |
 | GET /integration | — | 已认证 |
 | GET/POST /keys | POST 为名称、来源、群范围、权限与天数 | 管理员 |

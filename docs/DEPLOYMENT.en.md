@@ -14,6 +14,8 @@ The full-snapshot bridge requires both a remote chatlog directory and a local We
 
 When upgrading from 0.2.0, explicitly set `--chatlog-root` or `CHATARCHIVE_CHATLOG_ROOT`; previous built-in paths no longer apply. `--connection-label` defaults to `archive`. The fallback root is `/data/chatlog`; a missing directory fails the import and preserves the old snapshot.
 
+Each sync merges into the previous snapshot, so records removed upstream are retained. When a message has a `media_path`, the attachment is transferred with the sync and stored under `media/` in the data directory; archived attachments are not transferred again. Relative paths resolve against `--media-root` (or `CHATARCHIVE_MEDIA_ROOT`, defaulting to the chatlog root), and paths outside that root are never read. `CHATARCHIVE_MEDIA_MAX_BYTES` limits a single attachment (default 512 MiB). The WeCom database only holds plaintext and `sdkfileid`; originals need the platform SDK and remain not downloaded, with the `sdkfileid` kept in the raw record.
+
 The systemd index example reads `/etc/chatarchive-index.env`; use `deploy/chatarchive-index.env.example` as a template, readable only by root. Validate a temporary output index first. To merge CLI-visible groups, install and configure `lark-cli` and pass `--profile primary=YOUR_PROFILE`; this flag is repeatable.
 
 Compare source counts, group names, connection labels and message samples before changing the scheduled import. Do not overwrite live environment files with examples. Preserve previous configuration and snapshots for rollback.

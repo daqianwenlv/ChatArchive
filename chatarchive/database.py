@@ -6,12 +6,20 @@ from pathlib import Path
 SCHEMA = '''
 CREATE TABLE sources(source TEXT PRIMARY KEY, name TEXT NOT NULL, mode TEXT NOT NULL, synced_at TEXT, status TEXT, details TEXT NOT NULL DEFAULT '{}');
 CREATE TABLE groups(source TEXT NOT NULL, id TEXT NOT NULL, name TEXT NOT NULL DEFAULT '', kind TEXT NOT NULL DEFAULT 'group', connection TEXT NOT NULL DEFAULT '', enabled INTEGER, in_chat INTEGER, last_sync TEXT, message_count INTEGER NOT NULL DEFAULT 0, participant_count INTEGER NOT NULL DEFAULT 0, first_ts INTEGER, last_ts INTEGER, PRIMARY KEY(source,id));
-CREATE TABLE messages(source TEXT NOT NULL, id TEXT NOT NULL, group_id TEXT NOT NULL, ts INTEGER, sender_id TEXT NOT NULL DEFAULT '', sender_name TEXT NOT NULL DEFAULT '', type TEXT NOT NULL DEFAULT 'unknown', text TEXT NOT NULL DEFAULT '', deleted INTEGER NOT NULL DEFAULT 0, parent_id TEXT, media_state TEXT NOT NULL DEFAULT '', PRIMARY KEY(source,id));
+CREATE TABLE messages(source TEXT NOT NULL, id TEXT NOT NULL, group_id TEXT NOT NULL, ts INTEGER, sender_id TEXT NOT NULL DEFAULT '', sender_name TEXT NOT NULL DEFAULT '', type TEXT NOT NULL DEFAULT 'unknown', text TEXT NOT NULL DEFAULT '', deleted INTEGER NOT NULL DEFAULT 0, parent_id TEXT, media_state TEXT NOT NULL DEFAULT '', raw TEXT NOT NULL DEFAULT '{}', media_sha256 TEXT, media_name TEXT NOT NULL DEFAULT '', media_mime TEXT NOT NULL DEFAULT '', media_bytes INTEGER, first_seen TEXT, PRIMARY KEY(source,id));
 CREATE INDEX messages_group_time ON messages(source,group_id,ts DESC,id DESC);
 CREATE INDEX messages_time ON messages(ts DESC,source,id DESC);
 CREATE INDEX messages_source_type ON messages(source,type,ts DESC);
 CREATE TABLE metadata(key TEXT PRIMARY KEY,value TEXT NOT NULL);
 '''
+
+# Columns added after 0.4.0-preview.1; older snapshots are upgraded in place before a merge.
+MESSAGE_COLUMNS={'raw':"TEXT NOT NULL DEFAULT '{}'",'media_sha256':'TEXT','media_name':"TEXT NOT NULL DEFAULT ''",'media_mime':"TEXT NOT NULL DEFAULT ''",'media_bytes':'INTEGER','first_seen':'TEXT'}
+
+def upgrade(con):
+    present={r[1] for r in con.execute('PRAGMA table_info(messages)')}
+    for name,definition in MESSAGE_COLUMNS.items():
+        if name not in present:con.execute(f'ALTER TABLE messages ADD COLUMN {name} {definition}')
 
 @contextmanager
 def read_db(path):
