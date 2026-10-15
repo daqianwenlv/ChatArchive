@@ -15,6 +15,8 @@ class Model:
         self.base = os.environ.get('CHATARCHIVE_AI_BASE_URL', '').rstrip('/')
         self.name = os.environ.get('CHATARCHIVE_AI_MODEL', '')
         self.key = os.environ.get('CHATARCHIVE_AI_API_KEY', '')
+        # Local CLI gateways (e.g. cligw -> gpt-5.5) need around a minute for a 40-group batch; the default keeps the previous limit.
+        self.timeout = float(os.environ.get('CHATARCHIVE_AI_TIMEOUT', '50') or 50)
 
     def status(self):
         return {'ready': bool(self.base and self.name), 'model': self.name if self.base else '',
@@ -30,7 +32,7 @@ class Model:
         if self.key:
             headers['Authorization'] = 'Bearer ' + self.key
         try:
-            with httpx.Client(timeout=httpx.Timeout(50, connect=10), follow_redirects=False) as client:
+            with httpx.Client(timeout=httpx.Timeout(self.timeout, connect=10), follow_redirects=False) as client:
                 with client.stream('POST', self.base + '/chat/completions', headers=headers, json={
                     'model': self.name, 'messages': [{'role': 'system', 'content': system},
                     {'role': 'user', 'content': json.dumps(payload, ensure_ascii=False)}],
