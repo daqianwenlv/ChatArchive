@@ -22,11 +22,13 @@ def upgrade(con):
         if name not in present:con.execute(f'ALTER TABLE messages ADD COLUMN {name} {definition}')
 
 @contextmanager
-def read_db(path):
+def read_db(path,attach=None):
     p=Path(path).resolve()
     con=sqlite3.connect(p.as_uri()+'?mode=ro',uri=True,timeout=10)
     con.row_factory=sqlite3.Row
     try:
+        for name,other in (attach or {}).items():
+            con.execute(f'ATTACH DATABASE ? AS {name}',(Path(other).resolve().as_uri()+'?mode=ro',))
         con.execute('PRAGMA query_only=ON')
         con.execute('BEGIN')
         yield con

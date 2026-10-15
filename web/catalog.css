@@ -1,0 +1,17 @@
+.seq-cell{font-variant-numeric:tabular-nums;color:#7d8ba1;font-size:11px;white-space:nowrap}
+.category-cell{min-width:120px;max-width:220px}
+.category-chip{display:inline-block;font-size:11px;color:#3f5fc4;background:#eef2fd;border:1px solid #dbe3fb;border-radius:4px;padding:2px 7px;white-space:nowrap}
+.category-chip.none{color:#98a3b3;background:#f6f8fb;border-color:#e6eaf1}
+.lock-mark{font-size:9px;color:#9a7b3f;border:1px solid #ecdcb9;background:#fdf8ee;border-radius:3px;padding:1px 4px;margin-left:5px}
+.tag-list{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}.tag-list span,.tag{font-size:10px;color:#6c7c93;background:#f3f5f9;border-radius:3px;padding:1px 6px}
+.panel-caption .button{margin-left:10px;font-size:11px;padding:5px 10px}
+.group-label{padding:16px 20px;margin:-8px 0 20px}.label-main{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.label-main .button{margin-left:auto;font-size:11px}
+.seq-number{font-size:13px;font-weight:600;color:#52657f;font-variant-numeric:tabular-nums}.label-reason{font-size:11px;color:#8794a6;margin-top:10px;line-height:1.7}
+.label-evidence{display:flex;align-items:center;gap:6px;font-size:11px;color:#8794a6;margin-top:6px}.label-evidence .text-button{font-size:11px;color:#4868d7}
+.catalog-modal{width:760px}.catalog-stats{display:flex;flex-wrap:wrap;gap:16px;font-size:11px;color:#8794a6;margin:16px 0 10px}.catalog-stats b{color:#41536d;font-weight:600}.warn-text{color:#b07a2a}
+.catalog-tools{display:flex;gap:9px;margin:14px 0}.catalog-list{display:flex;flex-direction:column;gap:10px;max-height:52vh;overflow:auto}
+.category-row{border:1px solid #e6ebf3;border-radius:8px;padding:12px}.category-fields{display:grid;grid-template-columns:150px 1fr;gap:8px}.category-fields .wide{grid-column:1/-1}
+.category-meta{display:flex;align-items:baseline;gap:10px;margin-top:8px;font-size:10px;color:#8e9aac}.category-meta small{flex:1;overflow-wrap:anywhere}.category-meta .text-button{margin-left:auto;font-size:11px}
+.job-line{font-size:12px;color:#55667f;display:flex;align-items:center;gap:12px}.job-bar{flex:1;height:5px;background:#eef1f7;border-radius:3px;overflow:hidden;display:block}.job-bar i{display:block;height:100%;background:var(--blue);transition:width .3s}
+.panel-note.flush{padding:0}.lock-option{margin-top:14px}
+@media(max-width:620px){.category-fields{grid-template-columns:1fr}.catalog-tools{flex-wrap:wrap}}

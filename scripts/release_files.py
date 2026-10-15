@@ -12,7 +12,7 @@ def source_files(root):
            'docs/产品原则.md','docs/产品需求.md','docs/架构与接口草案.md','docs/实施清单.md','docs/开源与部署.md',
            'scripts/export_chatlog.py','scripts/package_source.py','scripts/release_files.py',
            'scripts/release_check.py','scripts/verify_docker.py',
-           'web/index.html','web/app.js','web/app.css','web/tasks.js','web/tasks.css','web/workspace.js','web/workspace.css','web/favicon.svg',
+           'web/index.html','web/app.js','web/app.css','web/tasks.js','web/tasks.css','web/workspace.js','web/workspace.css','web/catalog.js','web/catalog.css','web/favicon.svg',
            'deploy/chatarchive-api.service','deploy/chatarchive-index.service','deploy/chatarchive-index.timer',
            'deploy/chatarchive-index.env.example','deploy/nginx.conf.example',
            'examples/sample.jsonl','examples/showcase.jsonl','examples/mcp_client.py','.github/workflows/checks.yml',

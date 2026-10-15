@@ -25,12 +25,21 @@ The default prefix is `/api`. A reverse proxy can expose machine queries under a
 | GET /message | source, message_id; also returns the `raw` record and the quoted `parent` message within the same scope | messages:read |
 | GET /media | source, message_id; the archived attachment. Common raster images display inline, everything else downloads | messages:read |
 | GET /analysis | source, group_id, start, end | analysis:read |
+| GET /catalog | Categories, numbering stats, AI status and the latest catalogue job | Administrator |
+| PUT /catalog/categories | `categories`: name, description, keywords. Omitted categories are deleted and their groups become unclassified | Administrator |
+| POST /catalog/proposals | Generate category proposals in the background (requires AI); returns a job | Administrator |
+| POST /catalog/classify | `mode=new` classifies unclassified groups, `mode=all` re-checks every unlocked group | Administrator |
+| GET /catalog/jobs/{id} | Job progress and result | Administrator |
+| GET /catalog/group | source, group_id; number, category, tags, origin, confidence, reason and evidence messages | groups:read |
+| PUT /catalog/group | Set category and tags manually; locked by default | Administrator |
 | GET /integration | — | Authenticated |
 | GET/POST /keys | POST: name, sources, groups, permissions, days | Administrator |
 | DELETE /keys/{id} | — | Administrator |
 | GET /audit | Recent call metadata | Administrator |
 
 Pagination returns `items,total,limit,offset,has_more`, with at most 100 items per page. Messages are sorted by descending timestamp, source and message ID. Text search matches literal Unicode substrings: `%` and `_` are not wildcards. Index updates can move page positions; each response reads a complete database snapshot.
+
+`GET /groups` also accepts `category` (a category ID or `none`) and returns each group's `seq` number, `category` and `tags`, plus the available `categories`. `q` also matches numbers (such as `#12`), category names and tags. Numbers follow the first archived message and never change once assigned.
 
 A group filter requires its source. Unauthorized and nonexistent groups both return 404. Status 401 means authentication failed, 403 means insufficient permission, and 429 means rate limited. Browser session writes require a valid Origin; use TLS in production.
 

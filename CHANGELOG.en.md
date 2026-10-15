@@ -8,6 +8,7 @@
 - Each message keeps its raw upstream record (mentions, cards, quotes); message details show the quoted message.
 - Image and file originals are stored under `media/` with the sync, deduplicated and verified by SHA-256; new `GET /api/media`.
 - Backup, restore and doctor include attachments; older indexes upgrade on the next import.
+- Group numbers, a primary category and tags: AI proposes categories from group names and message excerpts, an administrator confirms them, and groups are classified automatically. Keyword matches in group names decide without AI, manual changes are locked, and new groups are numbered and classified.
 
 ## 0.4.0-preview.1 — Requests, reviewed plans and task workspaces
 

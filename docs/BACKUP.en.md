@@ -2,7 +2,7 @@
 
 **English** · [简体中文](BACKUP.md)
 
-Backups contain the query database (including each message's raw record), archived attachments (`media/`, each verified by SHA-256), the account database, access-key digests and audit records. Back up upstream collectors, attachments not yet archived, platform credentials, TLS and proxy configuration separately. The ZIP contains private records and authentication metadata; store it in restricted, encrypted storage.
+Backups contain the query database (including each message's raw record), archived attachments (`media/`, each verified by SHA-256), the account database, access-key digests, audit records and the group catalogue (`catalog.sqlite3`). Back up upstream collectors, attachments not yet archived, platform credentials, TLS and proxy configuration separately. The ZIP contains private records and authentication metadata; store it in restricted, encrypted storage.
 
 ## Python installations
 

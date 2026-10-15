@@ -12,6 +12,7 @@ DATABASES = {
     'access.sqlite3': {'tokens', 'audit'},
     'accounts.sqlite3': {'users', 'sessions', 'login_limits'},
     'tasks.sqlite3': {'tasks', 'task_runs'},
+    'catalog.sqlite3': {'categories', 'group_labels', 'catalog_jobs'},
 }
 MAX_MANIFEST_BYTES = 65536
 MEDIA_ENTRY = re.compile(r'media/([0-9a-f]{2})/([0-9a-f]{64})')
@@ -163,6 +164,11 @@ def restore(bundle, data):
                     if db.execute("SELECT name FROM sqlite_master WHERE name='task_run_steps'").fetchone():
                         db.execute("UPDATE task_run_steps SET status='cancelled',error='Restored backup',finished_at=? WHERE status IN ('queued','running')", (int(time.time()),))
                     db.execute("UPDATE task_runs SET status='cancelled',error='Restored backup: run cancelled',finished_at=? WHERE status IN ('queued','running')", (int(time.time()),))
+                    db.commit()
+            if (temp/'catalog.sqlite3').exists():
+                with closing(sqlite3.connect(temp/'catalog.sqlite3')) as db:
+                    db.execute('PRAGMA trusted_schema=OFF')
+                    db.execute("UPDATE catalog_jobs SET status='failed',error='Restored backup',finished_at=? WHERE status='running'", (int(time.time()),))
                     db.commit()
             for entry in media:
                 if stat.S_ISLNK(entry.external_attr >> 16) or entry.is_dir():

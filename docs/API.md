@@ -25,12 +25,21 @@ JSONL 群对象：`kind=group`，`source` 为 feishu/wecom/wechat/dingtalk，`id
 | GET /message | source, message_id；另返回 `raw` 原始记录与 `parent` 被回复消息（同一授权范围内） | messages:read |
 | GET /media | source, message_id；返回已归档附件原件，常见位图内联显示，其余作为下载 | messages:read |
 | GET /analysis | source, group_id, start, end | analysis:read |
+| GET /catalog | 分类、编号统计、AI 状态与最近一次分类任务 | 管理员 |
+| PUT /catalog/categories | `categories`：名称、说明、识别词；未列出的分类被删除，其群变为未分类 | 管理员 |
+| POST /catalog/proposals | 后台生成分类建议（需要 AI），返回任务 | 管理员 |
+| POST /catalog/classify | `mode=new` 只归类未归类的群，`mode=all` 重判所有未锁定的群 | 管理员 |
+| GET /catalog/jobs/{id} | 任务进度与结果 | 管理员 |
+| GET /catalog/group | source, group_id；序号、主类、标签、来源、把握、理由与依据消息 | groups:read |
+| PUT /catalog/group | 手工设置主类与标签，默认锁定 | 管理员 |
 | GET /integration | — | 已认证 |
 | GET/POST /keys | POST 为名称、来源、群范围、权限与天数 | 管理员 |
 | DELETE /keys/{id} | — | 管理员 |
 | GET /audit | 最近调用元信息 | 管理员 |
 
 分页返回 `items,total,limit,offset,has_more`。每页最多 100 条；消息按时间倒序、来源及消息 ID 排序。原文搜索是 Unicode 字面子串匹配，`%`、`_` 不作为通配符。索引更新可能导致分页位置移动，响应是查询时刻的完整数据库快照。
+
+`GET /groups` 另接受 `category`（分类 ID 或 `none`），返回每个群的 `seq` 序号、`category`、`tags`，以及可用的 `categories`；`q` 可匹配序号（如 `#12`）、分类名和标签。序号按首条消息时间分配，分配后不再变化。
 
 指定群时必须同时指定来源。未授权群和不存在的群均返回 404。401 表示认证失败；403 表示权限不足；429 表示限流。浏览器会话写操作验证 Origin，生产使用 TLS。
 

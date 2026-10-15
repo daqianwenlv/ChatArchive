@@ -49,7 +49,16 @@ class Queries:
                 item.update(records.get(r['source'],{'messages':0,'groups':0,'private_conversations':0,'archived_groups':0,'last_ts':None}));item['last_message_at']=iso(item.pop('last_ts'));src.append(item)
             meta=dict(c.execute('SELECT key,value FROM metadata'))
         return {'sources':src,'indexed_at':meta.get('indexed_at'),'timezone':str(TZ)}
-    def groups(self,p,source=None,q='',kind='group',status='all',limit=30,offset=0):
+    def catalog(self):
+        path=Path(self.path).parent/'catalog.sqlite3'
+        return path if path.is_file() else None
+    def labelled(self,where):
+        """Group rows joined with their number, primary category and tags when a catalogue exists."""
+        if self.catalog():
+            return f'''(SELECT g0.*,g0.id group_id,l.seq,l.category_id,c.name category,l.tags,l.origin label_origin,l.locked label_locked FROM groups g0
+                LEFT JOIN cat.group_labels l ON l.source=g0.source AND l.group_id=g0.id LEFT JOIN cat.categories c ON c.id=l.category_id) g WHERE {where}'''
+        return f"(SELECT *,id group_id,NULL seq,NULL category_id,NULL category,'[]' tags,'' label_origin,0 label_locked FROM groups) g WHERE {where}"
+    def groups(self,p,source=None,q='',kind='group',status='all',limit=30,offset=0,category=''):
         p.require('groups:read'); limit=max(1,min(int(limit),100));offset=max(0,min(int(offset),100000))
         where,args=p.sql_scope('g')
         if source:
@@ -59,21 +68,29 @@ class Queries:
         if kind!='all':where+=' AND g.kind=?';args.append(kind)
         if q:
             if len(q)>160:raise ValueError('搜索词过长')
-            where+=" AND (g.name LIKE ? ESCAPE '\\' OR g.id LIKE ? ESCAPE '\\')";args.extend([like(q),like(q)])
+            number=q.lstrip('#＃')
+            where+=" AND (g.name LIKE ? ESCAPE '\\' OR g.id LIKE ? ESCAPE '\\' OR g.category LIKE ? ESCAPE '\\' OR g.tags LIKE ? ESCAPE '\\'"+(" OR g.seq=?" if number.isdigit() else '')+')'
+            args.extend([like(q)]*4+([int(number)] if number.isdigit() else []))
+        if category=='none':where+=' AND g.category_id IS NULL'
+        elif category:
+            if not category.isdigit():raise ValueError('无效分类')
+            where+=' AND g.category_id=?';args.append(int(category))
         if status=='archived':where+=' AND g.message_count>0'
         elif status=='uncovered':where+=' AND g.message_count=0'
         elif status!='all':raise ValueError('无效归档状态')
-        base=f'(SELECT *,id group_id FROM groups) g WHERE {where}'
-        with read_db(self.path) as c:
+        base=self.labelled(where);catalog=self.catalog()
+        with read_db(self.path,{'cat':catalog} if catalog else None) as c:
             total=c.execute('SELECT COUNT(*) FROM '+base,args).fetchone()[0]
             rows=c.execute('SELECT * FROM '+base+' ORDER BY (last_ts IS NULL),last_ts DESC,source,id LIMIT ? OFFSET ?',args+[limit,offset]).fetchall()
-        return {'items':[self.group_row(r) for r in rows],'total':total,'offset':offset,'limit':limit,'has_more':offset+len(rows)<total}
+            categories=[dict(r) for r in c.execute('SELECT id,name FROM cat.categories ORDER BY position,id')] if catalog else []
+        return {'items':[self.group_row(r) for r in rows],'total':total,'offset':offset,'limit':limit,'has_more':offset+len(rows)<total,'categories':categories}
     @staticmethod
     def group_row(r):
-        d=dict(r);d.pop('group_id',None);d['display_name']=d['name'] or d['id'];d['first_message_at']=iso(d.pop('first_ts'));d['last_message_at']=iso(d.pop('last_ts'));return d
+        d=dict(r);d.pop('group_id',None);d['tags']=json.loads(d.get('tags') or '[]');d['label_locked']=bool(d.get('label_locked'));d['display_name']=d['name'] or d['id'];d['first_message_at']=iso(d.pop('first_ts'));d['last_message_at']=iso(d.pop('last_ts'));return d
     def group(self,p,source,group_id):
         p.require('groups:read');where,args=self.filters(p,source,group_id,alias='g')
-        with read_db(self.path) as c:r=c.execute(f'SELECT * FROM (SELECT *,id group_id FROM groups) g WHERE {where}',args).fetchone()
+        catalog=self.catalog()
+        with read_db(self.path,{'cat':catalog} if catalog else None) as c:r=c.execute('SELECT * FROM '+self.labelled(where),args).fetchone()
         if r is None:raise LookupError('群不存在或不在授权范围内')
         return self.group_row(r)
     @staticmethod
