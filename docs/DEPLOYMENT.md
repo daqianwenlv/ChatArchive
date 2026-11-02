@@ -14,7 +14,7 @@
 
 从 0.2.0 升级时，旧的内置 chatlog 路径不再生效。显式传入 `--chatlog-root` 或设置 `CHATARCHIVE_CHATLOG_ROOT`；连接标签使用 `--connection-label`，默认 `archive`。路径按 Python 字符串传给远端，不拼接 shell 命令。未配置路径时默认 `/data/chatlog`；目录不存在会失败并保留前一查询快照。
 
-每次同步合并到上一快照：上游已删除的记录继续保留。消息带 `media_path` 时，附件原件随同步传回并保存在数据目录 `media/`，已归档的附件不会重复传输。相对路径按 `--media-root`（或 `CHATARCHIVE_MEDIA_ROOT`，默认为 chatlog 根目录）解析，根目录以外的路径一律不读取。单个附件上限由 `CHATARCHIVE_MEDIA_MAX_BYTES` 控制，默认 512 MiB。企业微信库只含明文与 `sdkfileid`，原件需要平台 SDK 下载，目前仍为未下载状态，`sdkfileid` 保存在原始记录中。
+每次同步合并到上一快照：上游已删除的记录继续保留。消息带 `media_path` 时，附件原件随同步传回并保存在数据目录 `media/`，已归档的附件不会重复传输。相对路径按 `--media-root`（或 `CHATARCHIVE_MEDIA_ROOT`，默认为 chatlog 根目录）解析，根目录以外的路径一律不读取。单个附件上限由 `CHATARCHIVE_MEDIA_MAX_BYTES` 控制，默认 512 MiB。企业微信库只含明文与 `sdkfileid`，原件需要平台 SDK 下载（平台只保留几天）。可选的补充库 `--wecom-enrichment`（或 `CHATARCHIVE_WECOM_ENRICHMENT`）由采集端写入：`media` 表给出已下载原件的 SHA-256、类型和可读文字（图片说明、语音转写、文件摘要），`quotes` 表给出从引用文字还原的被回复消息，`names` 表给出群名（`room`）与成员显示名（`user`）；过期未下载的原件记为 `expired`。原件可放在数据目录 `media/`，也可按同样的 `<前两位>/<sha256>` 布局放在对象存储，由 `CHATARCHIVE_MEDIA_REMOTE_URL` 指向，`GET /api/media` 本地没有时从该地址转发；doctor 把这类原件计为 `remote`，备份不包含它们。
 
 systemd 样例读取 `/etc/chatarchive-index.env`，模板为 `deploy/chatarchive-index.env.example`。迁移时先复制所需旧配置到新的私有环境文件，限制为 root 可读，再在临时输出路径验证索引。需要合并 CLI 群目录时增加 `--profile primary=YOUR_PROFILE`；支持多次传入，部署机须安装并配置 lark-cli。
 

@@ -43,17 +43,46 @@ def wecom_text(row):
     return {'image':'[图片]','voice':'[语音]','video':'[视频]','revoke':'[撤回提示]','emotion':'[表情]','chatrecord':'[聊天记录]','weapp':'[小程序]'}.get(kind,'['+kind+']')
 
 
-def import_wecom(con,path,received=None):
+WECOM_MEDIA=('image','file','voice','video','emotion')
+
+
+def wecom_enrichment(path):
+    """Optional companion database kept beside the WeCom collector.
+
+    Tables: media(msgid,state,sha256,bytes,mime,name,text,info) for downloaded originals and their readable text,
+    quotes(msgid,parent_msgid) for replies reconstructed from quoted text, names(kind,id,name) with kind room or user.
+    """
+    found={'media':{},'quotes':{},'names':{}}
+    if not path or not Path(path).is_file():return found
+    db=sqlite3.connect(Path(path).resolve().as_uri()+'?mode=ro',uri=True,timeout=20);db.row_factory=sqlite3.Row
+    try:
+        found['media']={r['msgid']:dict(r) for r in db.execute('SELECT msgid,state,sha256,bytes,mime,name,text,info FROM media')}
+        found['quotes']={r['msgid']:r['parent_msgid'] for r in db.execute('SELECT msgid,parent_msgid FROM quotes WHERE parent_msgid IS NOT NULL')}
+        found['names']={(r['kind'],r['id']):r['name'] for r in db.execute("SELECT kind,id,name FROM names WHERE name!=''")}
+    finally:db.close()
+    return found
+
+
+def import_wecom(con,path,received=None,enrichment=None):
+    extra=wecom_enrichment(enrichment);names=extra['names']
     source=sqlite3.connect(Path(path).resolve().as_uri()+'?mode=ro',uri=True,timeout=20);source.row_factory=sqlite3.Row
     try:
         source.execute('BEGIN');groups=set()
         for row in source.execute('SELECT f.*,p.plaintext FROM message_facts f JOIN plaintext_messages p ON p.seq=f.seq ORDER BY f.seq'):
             raw=json.loads(row['plaintext']);fact={k:row[k] for k in row.keys() if k!='plaintext'};gid=row['room_id'] or 'private:'+str(row['sender'] or 'unknown')
             if gid not in groups:
-                insert(con,{'kind':'group','source':'wecom','id':gid,'name':'','conversation_kind':'group' if row['room_id'] else 'private','connection':'archive','enabled':True,'in_chat':None});groups.add(gid)
-            insert(con,{'kind':'message','source':'wecom','id':row['msgid'],'group_id':gid,'ts':row['msg_time'],'sender_id':row['sender'] or '', 'sender_name':'','type':row['msgtype'] or 'unknown','text':wecom_text(raw),'deleted':False,'media_state':'not_downloaded' if row['msgtype'] in ('image','file','voice','video') else '','raw':{'fact':fact,'content':raw}})
+                name=names.get(('room',row['room_id']),'') if row['room_id'] else names.get(('user',row['sender']),'')
+                insert(con,{'kind':'group','source':'wecom','id':gid,'name':name,'conversation_kind':'group' if row['room_id'] else 'private','connection':'archive','enabled':True,'in_chat':None});groups.add(gid)
+            media=extra['media'].get(row['msgid'],{});content={'fact':fact,'content':raw}
+            if media.get('info'):content['enrichment']=json.loads(media['info'])
+            state='archived' if media.get('sha256') else media.get('state') or ('not_downloaded' if row['msgtype'] in WECOM_MEDIA else '')
+            insert(con,{'kind':'message','source':'wecom','id':row['msgid'],'group_id':gid,'ts':row['msg_time'],'sender_id':row['sender'] or '', 'sender_name':names.get(('user',row['sender']),''),'type':row['msgtype'] or 'unknown','text':media.get('text') or wecom_text(raw),'deleted':False,'parent_id':extra['quotes'].get(row['msgid']),'media_state':state,'raw':content})
+            # Originals are content-addressed; they live under media/ or behind CHATARCHIVE_MEDIA_REMOTE_URL.
+            if media.get('sha256'):
+                con.execute("UPDATE messages SET media_sha256=?,media_name=?,media_mime=?,media_bytes=?,media_state='archived' WHERE source='wecom' AND id=?",(media['sha256'],str(media.get('name') or '')[:255],str(media.get('mime') or '')[:100],media.get('bytes'),row['msgid']))
             if received is not None:received['wecom']+=1
-        return dict(source.execute('SELECT name,value FROM cursor_state'))
+        state=dict(source.execute('SELECT name,value FROM cursor_state'));state['group_names_available']=any(k=='room' for k,_ in names)
+        return state
     finally:source.close()
 
 
@@ -108,9 +137,9 @@ def build(args):
                         c.execute('UPDATE groups SET connection=? WHERE source=? AND id=?',(','.join(sorted(labels)),'feishu',cid))
                     else:insert(c,{'kind':'group','source':'feishu','id':cid,'name':g.get('name') or '', 'connection':label,'enabled':False,'in_chat':True})
                 connection_details[label]={'visible_groups':len(data['data']['chats']),'connected':True}
-            wc=import_wecom(c,args.wecom_db,received)
+            wc=import_wecom(c,args.wecom_db,received,args.wecom_enrichment)
             stamp=dt.datetime.now(dt.timezone.utc).isoformat(timespec='seconds')
-            rows=[('feishu','飞书','continuous',stamp,'connected',json.dumps({'connections':connection_details,'interval_seconds':1800})),('wecom','企业微信','continuous',wc.get('last_pull_at'),wc.get('collector_status','unknown'),json.dumps({'interval_seconds':15,'group_names_available':False})),('wechat','微信','import',stamp,'imported','{}'),('dingtalk','钉钉','unconfigured',None,'not_connected','{}')]
+            rows=[('feishu','飞书','continuous',stamp,'connected',json.dumps({'connections':connection_details,'interval_seconds':1800})),('wecom','企业微信','continuous',wc.get('last_pull_at'),wc.get('collector_status','unknown'),json.dumps({'interval_seconds':15,'group_names_available':wc['group_names_available']})),('wechat','微信','import',stamp,'imported','{}'),('dingtalk','钉钉','unconfigured',None,'not_connected','{}')]
             c.executemany('INSERT OR REPLACE INTO sources VALUES(?,?,?,?,?,?)',rows)
             c.execute('INSERT OR REPLACE INTO metadata VALUES(?,?)',('indexed_at',stamp));finalize(c)
             counts=dict(c.execute('SELECT source,COUNT(*) FROM messages GROUP BY source'));c.close();c=None
@@ -128,6 +157,7 @@ def main():
     p.add_argument('--chatlog-root',type=Path,default=Path(os.environ.get('CHATARCHIVE_CHATLOG_ROOT','/data/chatlog')))
     p.add_argument('--media-root',type=Path,default=os.environ.get('CHATARCHIVE_MEDIA_ROOT') or None,help='Remote attachment directory; defaults to --chatlog-root')
     p.add_argument('--connection-label',default=os.environ.get('CHATARCHIVE_CONNECTION_LABEL','archive'))
+    p.add_argument('--wecom-enrichment',type=Path,default=os.environ.get('CHATARCHIVE_WECOM_ENRICHMENT') or None,help='Optional companion database with WeCom originals, attachment text, quotes and names')
     build(p.parse_args())
 
 if __name__=='__main__':main()

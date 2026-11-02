@@ -118,9 +118,13 @@ class Queries:
     def media(self,p,source,message_id):
         item=self.message(p,source,message_id)
         if not item.get('media_sha256'):raise LookupError('该消息没有已归档的附件')
-        path=media_path(Path(self.path).parent/'media',item['media_sha256'])
-        if not path.is_file():raise LookupError('附件文件缺失，请运行 doctor 检查')
-        return path,item['media_name'] or item['media_sha256'],item['media_mime']
+        digest=item['media_sha256'];path=media_path(Path(self.path).parent/'media',digest)
+        if not path.is_file():
+            # Originals offloaded to object storage keep the same content-addressed layout.
+            remote=os.environ.get('CHATARCHIVE_MEDIA_REMOTE_URL','').rstrip('/')
+            if not remote:raise LookupError('附件文件缺失，请运行 doctor 检查')
+            path=f'{remote}/{digest[:2]}/{digest}'
+        return path,item['media_name'] or digest,item['media_mime']
     def analysis(self,p,source=None,group_id=None,start=None,end=None):
         p.require('analysis:read');where,args=self.filters(p,source,group_id,start,end)
         with read_db(self.path) as c:

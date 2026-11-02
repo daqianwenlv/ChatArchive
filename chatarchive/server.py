@@ -1,11 +1,12 @@
 from __future__ import annotations
-import asyncio, collections, contextlib, hmac, json, os, time
+import asyncio, collections, contextlib, hmac, json, os, time, urllib.error, urllib.request
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlsplit
+from urllib.parse import quote, urlsplit
 from fastapi import FastAPI,Request,Query
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse,FileResponse,RedirectResponse,Response
+from fastapi.responses import JSONResponse,FileResponse,RedirectResponse,Response,StreamingResponse
+from starlette.background import BackgroundTask
 from mcp.server import MCPServer
 from mcp.server.mcpserver import Context
 from mcp.types import ToolAnnotations
@@ -248,6 +249,12 @@ def create_app(data_dir=None,*,trust_proxy=None,admin_token=None,base_url=None,s
         path,name,mime=queries.media(request.state.principal,source,message_id)
         # Only known raster images render inline; anything else (including SVG/HTML) downloads.
         inline=mime in INLINE
+        if isinstance(path,str):
+            try:upstream=urllib.request.urlopen(path,timeout=60)
+            except (urllib.error.URLError,OSError) as error:raise LookupError('附件原件暂时取不到') from error
+            headers={'Content-Disposition':f"{'inline' if inline else 'attachment'}; filename*=utf-8''{quote(name)}"}
+            if upstream.headers.get('Content-Length'):headers['Content-Length']=upstream.headers['Content-Length']
+            return StreamingResponse(iter(lambda:upstream.read(1<<20),b''),media_type=mime if inline else 'application/octet-stream',headers=headers,background=BackgroundTask(upstream.close))
         return FileResponse(path,media_type=mime if inline else 'application/octet-stream',filename=name,content_disposition_type='inline' if inline else 'attachment')
     @app.get('/api/analysis')
     def analysis(request:Request,source:str|None=None,group_id:str|None=None,start:str|None=None,end:str|None=None):return queries.analysis(request.state.principal,source,group_id,start,end)

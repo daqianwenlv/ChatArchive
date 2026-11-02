@@ -234,7 +234,9 @@ def doctor(data):
     if result['databases'].get('archive.sqlite3', {}).get('status') in ('ok', 'world_accessible'):
         with read_db(data/'archive.sqlite3') as db:
             if any(r['name'] == 'media_sha256' for r in db.execute('PRAGMA table_info(messages)')):
-                detail['missing'] = sum(1 for r in db.execute('SELECT DISTINCT media_sha256 FROM messages WHERE media_sha256 IS NOT NULL') if r[0] not in names)
+                absent = sum(1 for r in db.execute('SELECT DISTINCT media_sha256 FROM messages WHERE media_sha256 IS NOT NULL') if r[0] not in names)
+                # With CHATARCHIVE_MEDIA_REMOTE_URL, originals absent locally are served from object storage.
+                detail['remote' if os.environ.get('CHATARCHIVE_MEDIA_REMOTE_URL') else 'missing'] = absent
     if detail['missing'] or ((data/'media').is_dir() and (data/'media').stat().st_mode & 0o007):
         result['ok'] = False
     result['media'] = detail

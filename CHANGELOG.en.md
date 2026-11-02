@@ -4,6 +4,8 @@
 
 ## Unreleased — Complete archive
 
+- Optional WeCom companion database: image, file, voice and video originals are archived with SHA-256 and readable text, quotes become reply links, and group and member display names are filled in; originals that expired before download are marked expired.
+- Originals may live in object storage (`CHATARCHIVE_MEDIA_REMOTE_URL`); `GET /api/media` streams them when no local copy exists and doctor reports them as remote.
 - Syncs and imports merge: records and group names removed or blanked upstream stay archived.
 - Each message keeps its raw upstream record (mentions, cards, quotes); message details show the quoted message.
 - Image and file originals are stored under `media/` with the sync, deduplicated and verified by SHA-256; new `GET /api/media`.

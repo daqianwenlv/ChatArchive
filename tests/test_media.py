@@ -132,3 +132,22 @@ def test_doctor_reports_missing_attachments(stored):
     media_path(stored/'media',hashlib.sha256(PNG).hexdigest()).unlink()
     report=doctor(stored)
     assert not report['ok'] and report['media']['missing']==1
+
+
+def test_offloaded_original_streams_from_object_storage(stored,monkeypatch):
+    import io,urllib.request
+    path=media_path(stored/'media',hashlib.sha256(PNG).hexdigest());path.unlink()
+    assert doctor(stored)['media']['missing']==1
+    monkeypatch.setenv('CHATARCHIVE_MEDIA_REMOTE_URL','https://bucket.invalid/media/')
+    # Offloaded originals are reported as remote, not missing.
+    assert doctor(stored)['media']=={'files':0,'bytes':0,'missing':0,'remote':1}
+    seen=[]
+    class Upstream(io.BytesIO):
+        headers={'Content-Length':str(len(PNG))}
+    monkeypatch.setattr(urllib.request,'urlopen',lambda url,timeout:seen.append(url) or Upstream(PNG))
+    app=create_app(stored,trust_proxy=False,admin_token='a'*40,base_url='http://testserver')
+    with TestClient(app) as client:
+        r=client.get('/api/media?source=feishu&message_id=m1',headers={'Authorization':'Bearer '+'a'*40})
+    digest=hashlib.sha256(PNG).hexdigest()
+    assert r.status_code==200 and r.content==PNG and r.headers['content-type']=='image/png'
+    assert seen==[f'https://bucket.invalid/media/{digest[:2]}/{digest}']
